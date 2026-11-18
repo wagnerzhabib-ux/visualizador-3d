@@ -1,0 +1,1092 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Casa de Campo | Visualizador 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--panel:rgba(22,28,36,.82);--ink:#EEF2F6;--muted:#A9B4C0;--accent:#6E95FF;--line:rgba(255,255,255,.14)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+#app{position:fixed;inset:0}
+#app canvas{display:block;width:100%;height:100%;touch-action:none}
+.top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;pointer-events:none;background:linear-gradient(rgba(0,0,0,.45),transparent)}
+.top .brand{margin:2px 0 0;font-size:12px;font-weight:700;color:var(--muted);text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.top{padding-right:calc(env(safe-area-inset-right,0px) + 150px)!important}
+@media (max-width:600px){.top{padding-right:calc(env(safe-area-inset-right,0px) + 116px)!important}.top h1{font-size:15px!important}}
+.top h1{margin:0;font-size:18px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;gap:6px;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.bar button{font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:transparent;border:0;border-radius:8px;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.bar button:hover{background:rgba(255,255,255,.1)}
+.bar button[aria-pressed="true"]{background:var(--accent);color:#0E1420}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 70px);min-width:240px;max-width:calc(100% - 24px);max-height:50vh;overflow:auto;padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-size:14px}
+.pop[hidden]{display:none}
+.pop label{display:flex;gap:10px;align-items:center;padding:6px 0;cursor:pointer}
+.pop input{width:18px;height:18px;accent-color:var(--accent)}
+.pop i{width:10px;height:10px;border-radius:2px;display:inline-block;background:var(--accent)}
+#loading{position:fixed;inset:0;display:grid;place-items:center;text-align:center;background:inherit;z-index:5}
+#loading .lbrand{display:block;margin-top:18px;font-weight:800;font-size:15px;color:var(--ink)}
+#loading p{margin:14px 0 0;color:var(--muted);font-size:14px}
+.spin{width:40px;height:40px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:var(--accent);margin:auto;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.help{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 74px);font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);padding:8px 12px;border-radius:10px;text-align:center;max-width:calc(100% - 24px);transition:opacity .6s}
+.help.off{opacity:0;pointer-events:none}
+#arStart{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;font:inherit;font-size:17px;font-weight:800;padding:18px 22px;border-radius:14px;border:0;background:var(--accent);color:#0E1420;box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:calc(100% - 40px)}
+#arUI{position:fixed;inset:0;pointer-events:none;z-index:7}
+#arUI[hidden]{display:none}
+#arUI .arbar{pointer-events:auto;position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:6px;align-items:center;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);flex-wrap:wrap;justify-content:center;max-width:calc(100% - 16px)}
+#arUI button{font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:transparent;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
+#arUI .arx{background:var(--accent);color:#0E1420}
+#arUI .arsz{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:0 6px}
+#arUI .arsz input{width:90px;accent-color:var(--accent)}
+#arMsg{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);margin:0;padding:10px 14px;border-radius:10px;background:var(--panel);font-size:14px;font-weight:700;text-align:center;max-width:calc(100% - 24px)}
+#arMsg:empty{display:none}
+body.inar .bar,body.inar .top,body.inar .help{display:none}
+body.inar .vcube,body.inxr .vcube,body.wall .vcube{display:none}
+.vcube{z-index:6;position:fixed;right:calc(env(safe-area-inset-right,0px) + 8px);top:calc(env(safe-area-inset-top,0px) + 8px);user-select:none;-webkit-user-select:none;touch-action:none}
+.vcube canvas{display:block;cursor:grab}
+.vcube .vccut{margin-top:4px;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.vcube .vccut[hidden],.vcube .vccut [hidden]{display:none}
+.vcube .vccut button{font:inherit;font-size:12px;font-weight:700;padding:7px 6px;border-radius:8px;border:1px solid rgba(140,150,161,.6);background:rgba(28,36,45,.82);color:#EEF2F6;cursor:pointer}
+.vcube .vccut button[data-c="new"]{background:#e53935;border-color:#e53935}
+.vcube .vccut p{margin:0;font-size:11.5px;line-height:1.35;color:#EEF2F6;background:rgba(28,36,45,.82);border-radius:8px;padding:6px}
+.vcube .vccut p:empty{display:none}
+.vcube .vccut .vcfill:not([hidden]){display:flex;gap:4px}
+.vcube .vccut .vcfill select{flex:1;min-width:0;font:inherit;font-size:12px;font-weight:700;padding:6px 4px;border-radius:8px;border:1px solid rgba(140,150,161,.6);background:rgba(28,36,45,.82);color:#EEF2F6}
+.vcube .vccut .vcfill input{width:34px;height:31px;padding:2px;border:1px solid rgba(140,150,161,.6);border-radius:8px;background:rgba(28,36,45,.82);cursor:pointer}
+.vcube .vccut .vcfill input[hidden]{display:none}
+
+.vcube .vchome{position:absolute;left:4px;top:2px;z-index:1;width:26px;height:26px;padding:0;border-radius:7px;border:1px solid rgba(140,150,161,.6);background:rgba(28,36,45,.75);color:#EEF2F6;font-size:15px;line-height:1;cursor:pointer}
+
+body.inxr .bar,body.inxr .top,body.inxr .help,body.inxr #app{display:none}
+#xrUI{position:fixed;inset:0;z-index:9;pointer-events:none}
+#xrUI[hidden]{display:none}
+.xrpanel{pointer-events:auto;position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);background:rgba(22,28,36,.82);border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:4px}
+.xrrow{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}
+.xrrow[hidden]{display:none}
+.xrpanel button{font:inherit;font-size:13px;font-weight:700;color:#EEF2F6;background:rgba(255,255,255,.08);border:0;border-radius:9px;padding:10px 4px;white-space:nowrap}
+.xrpanel .arx{background:#6E95FF;color:#0E1420}
+#xrH{margin:0;text-align:center;font-size:12px;font-weight:700;color:#C9D4DF}
+#xrH:empty{display:none}
+#xrMsg{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 170px);margin:0;padding:10px 14px;border-radius:12px;background:rgba(22,28,36,.85);color:#EEF2F6;font-size:14px;font-weight:700;text-align:center;width:max-content;max-width:calc(100% - 24px)}
+#xrMsg:empty{display:none}
+#xrUI.clean .xrpanel,#xrUI.clean #xrMsg{display:none}
+#xrShotBox{pointer-events:auto;position:fixed;inset:0;background:rgba(10,14,20,.92);display:flex;flex-direction:column;justify-content:center;gap:10px;padding:16px}
+#xrShotBox[hidden]{display:none}
+#xrShotBox img{max-width:100%;max-height:70vh;object-fit:contain;border-radius:10px;align-self:center}
+#xrShotBox button{font:inherit;font-size:14px;font-weight:700;color:#EEF2F6;background:rgba(255,255,255,.1);border:0;border-radius:10px;padding:12px 6px}
+#xrShotBox .arx{background:#6E95FF;color:#0E1420}
+#xrBack{position:fixed;inset:0;z-index:8;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+#xrBack[hidden]{display:none}
+#xrBack .opbox button{background:transparent;color:var(--ink);border:1px solid var(--line)}
+#xrBack .opbox button#xrBackGo{background:var(--accent);color:#0E1420;border:0}
+.thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.thumbs img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px}
+.shotHint{margin:0;color:#C9D4DF;font-size:12px;text-align:center}
+#obraPick{position:fixed;inset:0;z-index:8;display:grid;place-items:center;background:rgba(0,0,0,.45)}
+#obraPick[hidden]{display:none}
+.opbox{display:flex;flex-direction:column;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:calc(100% - 32px);width:380px;text-align:center}
+.opbox button{font:inherit;font-size:15px;font-weight:800;padding:14px;border-radius:10px;border:0;background:var(--accent);color:#0E1420}
+.opbox button:last-of-type{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.opbox small{color:var(--muted)}
+body.wall .bar,body.wall .top,body.wall .help,body.wall .pop,body.wall #arStart{display:none!important}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.help{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="top"><h1 id="title"></h1><p class="brand">Visualizador 3D</p></div>
+<div id="loading"><div><div class="spin"></div><p id="ltext">Carregando modelo 3D…</p><span class="lbrand">Visualizador 3D</span></div></div>
+<div class="help" id="help">Arraste para girar. Use o scroll ou dois dedos para aproximar. Botão direito, scroll apertado ou dois dedos movem a vista.</div>
+<div class="pop" id="discPop" hidden></div>
+<div id="xrUI" hidden>
+  <p id="xrMsg"></p>
+  <div id="xrShotBox" hidden><img id="xrShotImg" alt="Foto da realidade aumentada">
+    <div class="xrrow"><button type="button" id="xrKeep" class="arx">Guardar e continuar</button></div>
+    <div class="xrrow"><button type="button" id="xrSave">Salvar no celular</button><button type="button" id="xrShare">Enviar agora</button></div>
+    <p class="shotHint">Dica: guarde as fotos e envie todas de uma vez ao sair. "Enviar agora" abre o WhatsApp e o Android fecha a câmera; ao voltar, toque em "Voltar para a realidade aumentada".</p></div>
+  <div class="xrpanel" id="xrPanel">
+    <p id="xrH"></p>
+    <div class="xrrow"><button type="button" id="xrL" aria-label="Girar para a esquerda">↺ 1°</button><button type="button" id="xrR" aria-label="Girar para a direita">↻ 1°</button><button type="button" id="xrDown" aria-label="Descer 5 centímetros">▼ 5 cm</button><button type="button" id="xrUp" aria-label="Subir 5 centímetros">▲ 5 cm</button></div>
+    <div class="xrrow" id="xrRowMq" hidden><button type="button" id="xrMinus" aria-label="Diminuir">− tamanho</button><button type="button" id="xrPlus" aria-label="Aumentar">+ tamanho</button><button type="button" id="xrReal">Tamanho real</button></div>
+    <div class="xrrow"><button type="button" id="xrShot">📷 Foto</button><button type="button" id="xrRe">Recomeçar</button><button type="button" id="xrX" class="arx">Sair</button></div>
+  </div>
+</div>
+<div id="xrBack" hidden><div class="opbox"><b id="xrBackTitle">Fotos da realidade aumentada</b>
+  <div class="thumbs" id="xrThumbs"></div>
+  <button type="button" id="xrBackGo">Voltar para a realidade aumentada</button>
+  <button type="button" id="xrSendAll">Enviar as fotos (WhatsApp…)</button>
+  <button type="button" id="xrSaveAll">Salvar as fotos no celular</button>
+  <button type="button" id="xrBackClose">Fechar</button>
+  <small id="xrBackInfo"></small></div></div>
+<div id="obraPick" hidden><div class="opbox"><b id="opTitle">Ver a obra em escala real</b>
+  <button type="button" id="opXR" hidden>Modo estável (Android): o projeto fica fixo enquanto você anda</button>
+  <button type="button" id="opQL" hidden>Abrir no iPhone em tamanho real (Quick Look)</button>
+  <button type="button" id="opSheet">Usar a folha impressa</button>
+  <small id="opInfo"></small></div></div>
+<div id="arUI" hidden>
+  <div class="arbar">
+    <label class="arsz" id="arSizeL">Tamanho <input type="range" id="arSize" min="20" max="300" value="100"></label>
+    <button type="button" id="arFlip" hidden>Virar 180°</button>
+    <button type="button" id="arL" aria-label="Girar para a esquerda">↺</button>
+    <button type="button" id="arR" aria-label="Girar para a direita">↻</button>
+    <button type="button" id="arPhoto">Foto</button>
+    <button type="button" id="arPrint">Folha</button>
+    <button type="button" id="arExit" class="arx">Sair</button>
+  </div>
+  <p id="arMsg"></p>
+</div>
+<div class="bar">
+  <button type="button" id="bFit">Enquadrar</button>
+  <button type="button" id="bRot" aria-pressed="false">Girar sozinho</button>
+  <button type="button" id="bDisc" hidden>Disciplinas</button>
+  <button type="button" id="bFull">Tela cheia</button>
+  <button type="button" id="bAR">Realidade aumentada</button>
+  <button type="button" id="bObra" hidden>Escala real (obra)</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/exporters/USDZExporter.js"></script>
+<script type="application/octet-stream" id="glb"></script>
+<script>
+(function(){
+'use strict';
+const CFG = {"site":null,"title":"Casa de Campo","background":"#d9dde2","light":{"exposure":1,"ambient":1,"sun":1.5,"shadow":0.85,"az":35,"el":55,"color":"#fff4e6","groundOffset":0,"shadowsOn":true,"groundY":2.6500000000000012},"shadows":true,"autoRotate":true,"gzip":true,"colors":{"Estrutural":"#9AA3AD","Hidrossanitário":"#2F7FD8","Elétrica":"#E0A100"},"camera":{"pos":[-8.931899666849713,10.730059656225514,24.017164840308414],"target":[6.047021221792938,-0.31545334554189275,-1.5683217975608608],"fov":45},"parts":["modelo-mwmhpigf-1.bin"]};
+const $ = id => document.getElementById(id);
+$('title').textContent = CFG.title || '';
+document.body.style.background = CFG.background;
+$('loading').style.background = CFG.background;
+if (typeof THREE === 'undefined' || !THREE.GLTFLoader){ $('ltext').textContent = 'Não foi possível carregar o visualizador. Verifique a conexão com a internet e recarregue a página.'; return; }
+
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('app').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(CFG.background).convertSRGBToLinear();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(CFG.camera ? CFG.camera.fov : 45, 1, 0.05, 5000);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.screenSpacePanning = true;
+controls.mouseButtons = {LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN};
+controls.autoRotateSpeed = 0.8;
+renderer.domElement.addEventListener('mousedown', e=>{ if (e.button === 1) e.preventDefault(); });
+
+const hemi = new THREE.HemisphereLight(0xe8f2ff, 0x6b5a45, 0.35); scene.add(hemi);
+const L = Object.assign({exposure:1, ambient:1, sun:1.5, shadow:0.85, az:35, el:55, color:'#fff4e6'}, CFG.light || {});
+const useShadows = !!CFG.shadows && L.shadowsOn !== false;
+renderer.shadowMap.enabled = useShadows;
+renderer.toneMappingExposure = L.exposure;
+hemi.intensity = 0.35*L.ambient;
+const sunCol = new THREE.Color(L.color).convertSRGBToLinear();
+const sh = useShadows ? L.shadow : 0;
+const sun = new THREE.DirectionalLight(sunCol, L.sun*sh);
+sun.castShadow = useShadows; sun.shadow.mapSize.set(4096,4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+scene.add(sun); scene.add(sun.target);
+const sunFill = new THREE.DirectionalLight(sunCol, L.sun*(1-sh)); sunFill.target = sun.target; scene.add(sunFill);
+const catcher = new THREE.Mesh(new THREE.PlaneGeometry(1,1), new THREE.ShadowMaterial({opacity:0.32*L.shadow}));
+catcher.rotation.x = -Math.PI/2; catcher.receiveShadow = true; catcher.visible = useShadows; scene.add(catcher);
+function sunDir(){ const az = L.az*Math.PI/180, el = L.el*Math.PI/180; return new THREE.Vector3(Math.cos(el)*Math.sin(az), Math.sin(el), Math.cos(el)*Math.cos(az)); }
+
+function resize(){ renderer.setSize(window.innerWidth, window.innerHeight, false); camera.aspect = window.innerWidth/Math.max(window.innerHeight,1); camera.updateProjectionMatrix(); }
+window.addEventListener('resize', ()=>{ if (!(window.__ar && window.__ar.active)) resize(); }); resize();
+
+let model = null, mixer = null, homePos = null, homeTarget = null;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop((time, frame)=>{ const dt = clock.getDelta(); if (mixer) mixer.update(dt); if (XR.active){ if (frame) xrFrame(frame); renderer.render(scene, camera); return; } if (AR.active){ AR.render(); return; } controls.update(); renderer.render(scene, camera); });
+
+function bbox(){
+  const b = new THREE.Box3(); if (!model) return b;
+  model.updateMatrixWorld(true);   // garante a posição real de cada disciplina antes de medir
+  model.traverse(o=>{ if (o.isMesh && isShown(o)) b.expandByObject(o); });
+  return b;
+}
+function isShown(o){ for (let x=o; x; x=x.parent) if (!x.visible) return false; return true; }
+function fitSun(){
+  const b = bbox(); if (b.isEmpty()) return;
+  const c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3()).length();
+  sun.position.copy(c).add(sunDir().multiplyScalar(s));
+  sunFill.position.copy(sun.position);
+  sun.target.position.copy(c);
+  const cam = sun.shadow.camera; cam.left = cam.bottom = -s*0.6; cam.right = cam.top = s*0.6; cam.near = s*0.01; cam.far = s*2.2; cam.updateProjectionMatrix();
+  const gy = (typeof L.groundY === 'number' ? L.groundY : b.min.y) + (L.groundOffset || 0) - s*0.0005;
+  catcher.position.set(c.x, gy, c.z); catcher.scale.set(s*3, s*3, 1);
+}
+function fit(){
+  const b = bbox(); if (b.isEmpty()) return;
+  const s = b.getSize(new THREE.Vector3()).length(), c = b.getCenter(new THREE.Vector3());
+  controls.target.copy(c);
+  camera.position.copy(c).add(new THREE.Vector3(.6,.45,.8).normalize().multiplyScalar(s*1.05));
+  camera.near = s/1000; camera.far = s*100; camera.updateProjectionMatrix();
+}
+function home(){
+  if (homePos){ camera.position.copy(homePos); controls.target.copy(homeTarget); controls.update(); }
+  else fit();
+}
+$('bFit').onclick = home;
+$('bRot').onclick = ()=>{ controls.autoRotate = !controls.autoRotate; $('bRot').setAttribute('aria-pressed', controls.autoRotate); };
+$('bFull').onclick = ()=>{
+  const d = document, el = d.documentElement;
+  if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+  else { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f){ const r = f.call(el); if (r && r.catch) r.catch(()=>{}); } }
+};
+if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) $('bFull').hidden = true;
+$('bDisc').onclick = ()=>{ $('discPop').hidden = !$('discPop').hidden; };
+renderer.domElement.addEventListener('pointerdown', ()=>{ $('help').classList.add('off'); $('discPop').hidden = true; });
+setTimeout(()=>$('help').classList.add('off'), 7000);
+
+const AR_HIRO_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYCAAAAACbDccAAAAJBklEQVR42u3dT4gVdQDA8ZkUtUTMyJL8D5nU2h+jECqIjLISCoqkIkj6c+pgnTp06NahU10k+kNEUIl4qECjJAv1IpiZm7j9scxCUrE/UK1WTpdo3Z3fvPnz5u3u7Hw+N39vZnbe7NeZeW9n3ouTCOp3lk2AsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWIxHk7MeONu2oYA/y4YVDdpo5JrmUIhzLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCIu2mDz+VzHxW0qJ7bFwKARhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWwQFgIC2GBsBAWwgJhISyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAthNWpt44Bic24rMmccV/8B2GMhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlgIyyZAWAgLYUHtJtsEQxKbwB4LYZHlyyeW/38z0Iq1JybW7j/DtPG4hmWewHAfVZ6zko33rliQN826wCqtL7j8cfPLmZa1hnHWOp49OA7PfOLKJ0bbVhaYc3Fw1m9zpxk2xb57B/JXbGDN51kPXb+jwNMZNzc7TvvTyXu+74pkfqjjw+/dWWAZJ+cfy35wZzwhXkQIq1aF9iQXHMtbymVfOHnnfz8Xuh3/ovhY7jT74+XC4j+nzysw0cb4SKGFfRb/JCyiKIr2TCow0fo1hZc355BzLKLo0gN1v5hbNHWwwdvDHqseu1JdndP1mwQnY2G13dEVqaHzu+0qynpjTVit8cGF6bHrUq/0yi/3u1hYrbYqMLZ6xL/7Ki05FlaL3RUaXDbiVLzisu/zqnCMvFRoqoFersK7ocGrhv1r6qmKy94wsKeZv5fGX91Q41MvMtnCSktf2cVqbnN1Q4/C6tUZR1LshGb4ZIsOVVl6XOt6NuHqBudYo6FjB4/1J0ly+vXsk/u+Rj5nh8L6D4ULH+0fNs8L2ZM+ecZke2dkTPRHAw+Fwqo7rF0lzoiWFZyygWE5FNbqtiS5NjV4bsbEU5J9qYK+Ck65yqGw3XusHWUuUF9e4nL25u2xXN3Qy5eZURRF0Tvhide+lrGQifHlPd5uqO/thqTUS8KkzGvIpQe83dBWGzJK2RQcXZSU2vENNG97OMeq5xxre7lbADveNZg+/4+u9c57Ow+FmYeE8EIPdr7SKs5bC4fClpiV2VX4r4SLS78K2NywLSKsWmR/7MK20GDunTo3pEaeFVYLrSs5/Zy8CbanRnZ6u6GF51hJqdOlIrfQx51nco7VCvOzH9pacZHPNH6j+Bij7t9u6PBzQ7fKP1jpg4o+9kdohoSuK36jyIxTRg485eSdGtxX+pWksCgg9fbC98KiBnMbvv7C6qnfAmOLW/HMhdVTPwbGZgiLboU+vO8SYdGtvwNj5wiLbk0PjP0qLLo1LzB2UFj04k2D48KiF44Ii7GzV1j0QurawauFxZA5VWf8ZOTAVcJiyEOBsWsqLel5YTHk6cDY7gLz3Z4amSEscnL4Jn++970qpLSLW/AchdVjV4QGt+TNtSQ18qiwOFPwUvU7cmb65+vU0MvC4kwPBEdf7TxT+lPLZjoUMlzwu1I7H9guSg+9LSyG+zQ42vFW5sBfE28TFiP0lSzrw8BDm7wqZKT+8HDWew6bbw0M3i0sCvpmSnD4+OqyB05htdXh8PBfceBzk+PZoUlPC4u0eVmfRvNwPOL25vXhXdPaSFgEZN8dv3DB/qF/3BI/Hp7qtQY+Z18gMBqOzc48TPZFURTNPtXp1p0kEhZB5+eF1+nBJY18yg6Fo6Kbnc6XwqIHZSWRsKh/v9PQroQ1WpZUO1V6JBIWnXdZz1eY6cgrwiLHujdLz/LLnEhY5Lm/7D2nL85s7pP1PtYo2l3qr8lzf2jyc7XHGlUlXuPNa3RXwhrtsopeCvrW4WY/0WYdCi+blBoqekXJ5XX9T+zyQ4+3RM8V+I6JNRua/j+oWd/+1euNMUo/f37OUa6vv9qajgHf/jWeHE46fcDt0sH+CfAchXXmvqnEt4V35/ckuTH4wM0nkgNTI2FR2cfJ4IjPM5p+z0/J1lkT5Ok5xxpjRz/btf/o/Csvvml692eD4+kcS1jN3B84eaedhIWwEBbCAmEhLIQFwqIJGnA9Vuy3ZI8FwkJYCAuEhbAQFggLYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAYc5MzH5lk41BdnNgGOBQiLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFm3xL++vn//cyrwPAAAAAElFTkSuQmCC';
+const AR_PATT_B64 = 'IDIzNCAyMzUgMjQwIDIzMyAyNDAgMjM0IDI0MCAyMzUgMjQwIDIzNyAyNDAgMjM4IDI0MCAyNDAgMjQwIDIzMgogMjI5IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI4CiAyMjcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzkKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjM2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMzQgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIzNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjMxIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMjkgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIyNSAxNDkgMjQwIDI0MCAxODYgMjE2IDIyNSAxNzQgMjQwIDI0MCAyNDAgMjM3IDIzOCAyNDAgMjQwIDI0MAogMTUwIDEwNyAyMzggMjMxICA3NSAyMDggMTE1IDE0NyAyMzggMjI4IDIyMyAyMjYgMjM3IDE4MCAyMjYgMjQwCiAxNTAgIDYyIDE4MSAyMTMgIDYyIDE4NyAxMTMgMTY5IDE5NyAgNzIgIDI5IDIzNyAxMjAgIDUwICA1MyAyMDcKIDE0OSAgNjMgIDQ3ICA3OCAgNTMgMTg0IDExMyAxMDEgMTQyICAgNSAxNTAgMTUwICA0NSAyMTcgMTg2ICA4MwogMTIxICA4NCAyMjAgMjIyICA1OCAxODAgMTIxICA5MiAxMjggMTA5IDIzNyAxMjQgMTU1IDIzMiAxNjEgIDY0CiAxNDkgIDcxIDI0MCAyNDAgIDc2IDIxMCAgOTggMTA5IDEyMiAxMDggMjQwIDEyOSAgNTEgMTE5IDE2MSAxNTUKIDE0OSAxODYgMjQwIDI0MCAgOTggMjE5IDEzNSAxNTIgMjA3IDE5MSAyMzYgMjI3IDE1MiAgNzcgMTc1IDIwOQogMjM1IDIzNSAyNDAgMjMzIDI0MCAyMzQgMjQwIDIzNSAyNDAgMjM2IDI0MCAyMzggMjQwIDI0MCAyNDAgMjQwCiAyMjkgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIyNyAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMzYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIzNCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjM2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMzIgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIyOSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjI1IDE1NiAyNDAgMjQwIDE4NiAyMTYgMjI1IDE4NiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAxNTAgMTE3IDI0MCAyMzEgIDcyIDIwNiAxMTUgMTYyIDI0MCAyMzIgMjIzIDIzNyAyNDAgMTgwIDIyNiAyNDAKIDE1MCAgNzQgMTg3IDIxMyAgNTEgMTg0IDEwMyAxNjggMTk3ICA3OCAgMjkgMjM3IDEyMCAgNTAgIDUzIDIxNgogMTQ0ICA3NyAgNTEgIDc0ICA2MSAxODQgMTA2IDEwMSAxNDIgICA1IDE1MCAxNTIgIDUyIDIxNyAxODYgIDg1CiAxMTcgIDg5IDIxOSAyMTkgIDY1IDE4NCAxMjEgIDkyIDEyOCAxMDAgMjM2IDEyNSAxNTYgMjQwIDE3MCAgNzMKIDE0OCAgNzEgMjQwIDI0MCAgNzYgMjEwIDEwOSAxMDkgMTIxICA5OSAyNDAgMTM3ICA1MSAxMjAgMTY2IDE2NAogMTQwIDE4NiAyNDAgMjQwICA5OCAyMjAgMTUwIDE1NiAyMDcgMTkyIDIzNiAyMzAgMTUyICA3NyAxNzYgMjEyCiAyMzQgMjM1IDI0MCAyMzMgMjQwIDIzNCAyNDAgMjM1IDI0MCAyMzYgMjQwIDIzOCAyNDAgMjQwIDI0MCAyMzMKIDIyOSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzOQogMjI3IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIzNCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjMyIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMzUgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIzMiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjI4IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMjUgMTU2IDI0MCAyNDAgMTgyIDIxMiAyMjUgMTgwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDE1MCAxMTYgMjM4IDIyOCAgNjYgMjA1IDExNSAxNTEgMjM4IDIzNiAyMjUgMjQwIDI0MCAxODAgMjI2IDI0MAogMTU2ICA4NCAxODYgMjExICA0NyAxODQgMTA5IDE3MCAyMDAgIDkyICAzMCAyNDAgMTIwICA1MCAgNTMgMjE2CiAxNDcgIDgzICA1MSAgNzMgIDUwIDE4NCAxMDYgMTEwIDE0OCAgMTcgMTUxIDE1MCAgNDUgMjE3IDE4NiAgODUKIDEyNyAgOTggMjE5IDIxOSAgNTggMTc5IDEwOSAxMDEgMTI4IDEwNyAyMzcgMTI1IDE1NSAyNDAgMTYzICA3MgogMTU1ICA4NiAyNDAgMjQwICA3NiAyMDEgIDg1IDEwOCAxMjEgIDk1IDIzMiAxMzcgIDUxIDExOCAxNTMgMTU1CiAxNDkgMTg5IDI0MCAyNDAgIDk4IDIyMCAxNDEgMTU0IDIwNiAxNzggMjM1IDIzMCAxNTIgIDc3IDE3NSAyMDkKCiAyMzIgMjI4IDIzOSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIwNyAgODMgIDY0IDE1NSAyMDkKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjYgIDUzIDE4NiAxNjEgMTYxIDE3NQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDE4MCAgNTAgMjE3IDIzMiAxMTkgIDc3CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzggMjM3IDEyMCAgNDUgMTU1ICA1MSAxNTIKIDIzOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNyAyMjYgMjM3IDE1MCAxMjQgMTI5IDIyNwogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyMyAgMjkgMTUwIDIzNyAyNDAgMjM2CiAyMzcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI4ICA3MiAgIDUgMTA5IDEwOCAxOTEKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzggMTk3IDE0MiAxMjggMTIyIDIwNwogMjM1IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTc0IDE0NyAxNjkgMTAxICA5MiAxMDkgMTUyCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjUgMTE1IDExMyAxMTMgMTIxICA5OCAxMzUKIDIzNCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIxNiAyMDggMTg3IDE4NCAxODAgMjEwIDIxOQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTg2ICA3NSAgNjIgIDUzICA1OCAgNzYgIDk4CiAyMzMgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjMxIDIxMyAgNzggMjIyIDI0MCAyNDAKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzggMTgxICA0NyAyMjAgMjQwIDI0MAogMjM1IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTQ5IDEwNyAgNjIgIDYzICA4NCAgNzEgMTg2CiAyMzQgMjI5IDIyNyAyNDAgMjM2IDIzNCAyMzYgMjMxIDIyOSAyMjUgMTUwIDE1MCAxNDkgMTIxIDE0OSAxNDkKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjE2ICA4NSAgNzMgMTY0IDIxMgogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyNiAgNTMgMTg2IDE3MCAxNjYgMTc2CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTgwICA1MCAyMTcgMjQwIDEyMCAgNzcKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTIwICA1MiAxNTYgIDUxIDE1MgogMjM4IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNyAyMzcgMTUyIDEyNSAxMzcgMjMwCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjIzICAyOSAxNTAgMjM2IDI0MCAyMzYKIDIzNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzIgIDc4ICAgNSAxMDAgIDk5IDE5MgogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxOTcgMTQyIDEyOCAxMjEgMjA3CiAyMzUgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxODYgMTYyIDE2OCAxMDEgIDkyIDEwOSAxNTYKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyNSAxMTUgMTAzIDEwNiAxMjEgMTA5IDE1MAogMjM0IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjE2IDIwNiAxODQgMTg0IDE4NCAyMTAgMjIwCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxODYgIDcyICA1MSAgNjEgIDY1ICA3NiAgOTgKIDIzMyAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzEgMjEzICA3NCAyMTkgMjQwIDI0MAogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxODcgIDUxIDIxOSAyNDAgMjQwCiAyMzUgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxNTYgMTE3ICA3NCAgNzcgIDg5ICA3MSAxODYKIDIzNSAyMjkgMjI3IDI0MCAyMzYgMjM0IDIzNiAyMzIgMjI5IDIyNSAxNTAgMTUwIDE0NCAxMTcgMTQ4IDE0MAogMjMzIDIzOSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMTYgIDg1ICA3MiAxNTUgMjA5CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI2ICA1MyAxODYgMTYzIDE1MyAxNzUKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxODAgIDUwIDIxNyAyNDAgMTE4ICA3NwogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxMjAgIDQ1IDE1NSAgNTEgMTUyCiAyMzggMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAxNTAgMTI1IDEzNyAyMzAKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjUgIDMwIDE1MSAyMzcgMjMyIDIzNQogMjM2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNiAgOTIgIDE3IDEwNyAgOTUgMTc4CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM4IDIwMCAxNDggMTI4IDEyMSAyMDYKIDIzNSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDE4MCAxNTEgMTcwIDExMCAxMDEgMTA4IDE1NAogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI1IDExNSAxMDkgMTA2IDEwOSAgODUgMTQxCiAyMzQgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMTIgMjA1IDE4NCAxODQgMTc5IDIwMSAyMjAKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDE4MiAgNjYgIDQ3ICA1MCAgNTggIDc2ICA5OAogMjMzIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyOCAyMTEgIDczIDIxOSAyNDAgMjQwCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM4IDE4NiAgNTEgMjE5IDI0MCAyNDAKIDIzNSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDE1NiAxMTYgIDg0ICA4MyAgOTggIDg2IDE4OQogMjM0IDIyOSAyMjcgMjQwIDIzNCAyMzIgMjM1IDIzMiAyMjggMjI1IDE1MCAxNTYgMTQ3IDEyNyAxNTUgMTQ5CgogMjA5IDE3NSAgNzcgMTUyIDIyNyAyMzYgMTkxIDIwNyAxNTIgMTM1IDIxOSAgOTggMjQwIDI0MCAxODYgMTQ5CiAxNTUgMTYxIDExOSAgNTEgMTI5IDI0MCAxMDggMTIyIDEwOSAgOTggMjEwICA3NiAyNDAgMjQwICA3MSAxNDkKICA2NCAxNjEgMjMyIDE1NSAxMjQgMjM3IDEwOSAxMjggIDkyIDEyMSAxODAgIDU4IDIyMiAyMjAgIDg0IDEyMQogIDgzIDE4NiAyMTcgIDQ1IDE1MCAxNTAgICA1IDE0MiAxMDEgMTEzIDE4NCAgNTMgIDc4ICA0NyAgNjMgMTQ5CiAyMDcgIDUzICA1MCAxMjAgMjM3ICAyOSAgNzIgMTk3IDE2OSAxMTMgMTg3ICA2MiAyMTMgMTgxICA2MiAxNTAKIDI0MCAyMjYgMTgwIDIzNyAyMjYgMjIzIDIyOCAyMzggMTQ3IDExNSAyMDggIDc1IDIzMSAyMzggMTA3IDE1MAogMjQwIDI0MCAyNDAgMjM4IDIzNyAyNDAgMjQwIDI0MCAxNzQgMjI1IDIxNiAxODYgMjQwIDI0MCAxNDkgMjI1CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjkKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzMQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM2CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzQKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNgogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMzkgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjcKIDIyOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyOQogMjMyIDI0MCAyNDAgMjQwIDIzOCAyNDAgMjM3IDI0MCAyMzUgMjQwIDIzNCAyNDAgMjMzIDI0MCAyMzUgMjM0CiAyMTIgMTc2ICA3NyAxNTIgMjMwIDIzNiAxOTIgMjA3IDE1NiAxNTAgMjIwICA5OCAyNDAgMjQwIDE4NiAxNDAKIDE2NCAxNjYgMTIwICA1MSAxMzcgMjQwICA5OSAxMjEgMTA5IDEwOSAyMTAgIDc2IDI0MCAyNDAgIDcxIDE0OAogIDczIDE3MCAyNDAgMTU2IDEyNSAyMzYgMTAwIDEyOCAgOTIgMTIxIDE4NCAgNjUgMjE5IDIxOSAgODkgMTE3CiAgODUgMTg2IDIxNyAgNTIgMTUyIDE1MCAgIDUgMTQyIDEwMSAxMDYgMTg0ICA2MSAgNzQgIDUxICA3NyAxNDQKIDIxNiAgNTMgIDUwIDEyMCAyMzcgIDI5ICA3OCAxOTcgMTY4IDEwMyAxODQgIDUxIDIxMyAxODcgIDc0IDE1MAogMjQwIDIyNiAxODAgMjQwIDIzNyAyMjMgMjMyIDI0MCAxNjIgMTE1IDIwNiAgNzIgMjMxIDI0MCAxMTcgMTUwCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDE4NiAyMjUgMjE2IDE4NiAyNDAgMjQwIDE1NiAyMjUKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyOQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjMyCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzYKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNAogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM2CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIyNwogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI5CiAyNDAgMjQwIDI0MCAyNDAgMjM4IDI0MCAyMzYgMjQwIDIzNSAyNDAgMjM0IDI0MCAyMzMgMjQwIDIzNSAyMzUKIDIwOSAxNzUgIDc3IDE1MiAyMzAgMjM1IDE3OCAyMDYgMTU0IDE0MSAyMjAgIDk4IDI0MCAyNDAgMTg5IDE0OQogMTU1IDE1MyAxMTggIDUxIDEzNyAyMzIgIDk1IDEyMSAxMDggIDg1IDIwMSAgNzYgMjQwIDI0MCAgODYgMTU1CiAgNzIgMTYzIDI0MCAxNTUgMTI1IDIzNyAxMDcgMTI4IDEwMSAxMDkgMTc5ICA1OCAyMTkgMjE5ICA5OCAxMjcKICA4NSAxODYgMjE3ICA0NSAxNTAgMTUxICAxNyAxNDggMTEwIDEwNiAxODQgIDUwICA3MyAgNTEgIDgzIDE0NwogMjE2ICA1MyAgNTAgMTIwIDI0MCAgMzAgIDkyIDIwMCAxNzAgMTA5IDE4NCAgNDcgMjExIDE4NiAgODQgMTU2CiAyNDAgMjI2IDE4MCAyNDAgMjQwIDIyNSAyMzYgMjM4IDE1MSAxMTUgMjA1ICA2NiAyMjggMjM4IDExNiAxNTAKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMTgwIDIyNSAyMTIgMTgyIDI0MCAyNDAgMTU2IDIyNQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI4CiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzIKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNQogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjMyCiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzQKIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjI3CiAyMzkgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMjkKIDIzMyAyNDAgMjQwIDI0MCAyMzggMjQwIDIzNiAyNDAgMjM1IDI0MCAyMzQgMjQwIDIzMyAyNDAgMjM1IDIzNAoKIDE0OSAxNDkgMTIxIDE0OSAxNTAgMTUwIDIyNSAyMjkgMjMxIDIzNiAyMzQgMjM2IDI0MCAyMjcgMjI5IDIzNAogMTg2ICA3MSAgODQgIDYzICA2MiAxMDcgMTQ5IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM1CiAyNDAgMjQwIDIyMCAgNDcgMTgxIDIzOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDI0MCAyNDAgMjIyICA3OCAyMTMgMjMxIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzMwogIDk4ICA3NiAgNTggIDUzICA2MiAgNzUgMTg2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMTkgMjEwIDE4MCAxODQgMTg3IDIwOCAyMTYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzQKIDEzNSAgOTggMTIxIDExMyAxMTMgMTE1IDIyNSAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMTUyIDEwOSAgOTIgMTAxIDE2OSAxNDcgMTc0IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM1CiAyMDcgMTIyIDEyOCAxNDIgMTk3IDIzOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDE5MSAxMDggMTA5ICAgNSAgNzIgMjI4IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNwogMjM2IDI0MCAyMzcgMTUwICAyOSAyMjMgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMjcgMTI5IDEyNCAxNTAgMjM3IDIyNiAyMzcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzgKIDE1MiAgNTEgMTU1ICA0NSAxMjAgMjM3IDIzOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogIDc3IDExOSAyMzIgMjE3ICA1MCAxODAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAxNzUgMTYxIDE2MSAxODYgIDUzIDIyNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIwOSAxNTUgIDY0ICA4MyAyMDcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzkgMjI4IDIzMgogMTQwIDE0OCAxMTcgMTQ0IDE1MCAxNTAgMjI1IDIyOSAyMzIgMjM2IDIzNCAyMzYgMjQwIDIyNyAyMjkgMjM1CiAxODYgIDcxICA4OSAgNzcgIDc0IDExNyAxNTYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzUKIDI0MCAyNDAgMjE5ICA1MSAxODcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjQwIDI0MCAyMTkgIDc0IDIxMyAyMzEgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjMzCiAgOTggIDc2ICA2NSAgNjEgIDUxICA3MiAxODYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIyMCAyMTAgMTg0IDE4NCAxODQgMjA2IDIxNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNAogMTUwIDEwOSAxMjEgMTA2IDEwMyAxMTUgMjI1IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAxNTYgMTA5ICA5MiAxMDEgMTY4IDE2MiAxODYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzUKIDIwNyAxMjEgMTI4IDE0MiAxOTcgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMTkyICA5OSAxMDAgICA1ICA3OCAyMzIgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM2CiAyMzYgMjQwIDIzNiAxNTAgIDI5IDIyMyAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDIzMCAxMzcgMTI1IDE1MiAyMzcgMjM3IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzOAogMTUyICA1MSAxNTYgIDUyIDEyMCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAgNzcgMTIwIDI0MCAyMTcgIDUwIDE4MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDE3NiAxNjYgMTcwIDE4NiAgNTMgMjI2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjEyIDE2NCAgNzMgIDg1IDIxNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAxNDkgMTU1IDEyNyAxNDcgMTU2IDE1MCAyMjUgMjI4IDIzMiAyMzUgMjMyIDIzNCAyNDAgMjI3IDIyOSAyMzQKIDE4OSAgODYgIDk4ICA4MyAgODQgMTE2IDE1NiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNQogMjQwIDI0MCAyMTkgIDUxIDE4NiAyMzggMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyNDAgMjQwIDIxOSAgNzMgMjExIDIyOCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzMKICA5OCAgNzYgIDU4ICA1MCAgNDcgIDY2IDE4MiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjIwIDIwMSAxNzkgMTg0IDE4NCAyMDUgMjEyIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM0CiAxNDEgIDg1IDEwOSAxMDYgMTA5IDExNSAyMjUgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKIDE1NCAxMDggMTAxIDExMCAxNzAgMTUxIDE4MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzNQogMjA2IDEyMSAxMjggMTQ4IDIwMCAyMzggMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAxNzggIDk1IDEwNyAgMTcgIDkyIDIzNiAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyMzYKIDIzNSAyMzIgMjM3IDE1MSAgMzAgMjI1IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMjMwIDEzNyAxMjUgMTUwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjM4CiAxNTIgIDUxIDE1NSAgNDUgMTIwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAKICA3NyAxMTggMjQwIDIxNyAgNTAgMTgwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MAogMTc1IDE1MyAxNjMgMTg2ICA1MyAyMjYgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwCiAyMDkgMTU1ICA3MiAgODUgMjE2IDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDI0MCAyNDAgMjQwIDIzOSAyMzMKCg==';
+const AR_CAM_B64 = 'AAACgAAAAeBAgwrsW6bUSwAAAAAAAAAAQHQ3KqAAAAAAAAAAAAAAAAAAAAAAAAAAQIL0K3dHyf9AbbNowAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/wAAAAAAAAAAAAAAAAAAA/uWNa4AAAAL+3lTLAAAAAv17YFWAAAAA/VYLXIAAAAECCe0YgAAAAQIJlMOAAAABAdDcqoAAAAEBts2jAAAAAP+8OmzqkDy4=';
+
+/* ---------- realidade aumentada com a folha impressa (celular ou webcam) ---------- */
+const AR = window.__ar = {active:false, scene:new THREE.Scene(), root:new THREE.Group(), fit:new THREE.Group(), cam:new THREE.Camera(), src:null, ctx:null, video:null, vtex:null, size:1, rot:0, lost:0, saved:null};
+AR.scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a45, 0.6));
+const arSun = new THREE.DirectionalLight(0xfff4e6, 1.3); arSun.position.set(2,4,3); AR.scene.add(arSun);
+AR.scene.add(AR.root); AR.root.add(AR.fit); AR.scene.add(AR.cam);
+AR.scene.environment = scene.environment;
+function arMsg(t){ $('arMsg').textContent = t || ''; }
+function b64Url(b64, type){ const bin = atob(b64), u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i); return URL.createObjectURL(new Blob([u], {type})); }
+let threexP = null;
+function loadThreex(){
+  if (window.THREEx && THREEx.ArToolkitContext) return Promise.resolve();
+  if (!threexP) threexP = new Promise((res,rej)=>{ const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.5/three.js/build/ar-threex.js'; s.onload = res; s.onerror = ()=>{ threexP = null; rej(new Error('sem internet para a realidade aumentada')); }; document.head.appendChild(s); });
+  return threexP;
+}
+// obra em escala real: a folha é a âncora. 1 unidade do marcador = lado do quadrado preto (em metros).
+const SITE = CFG.site || null;
+const siteDirV = deg=>{ const a = deg*Math.PI/180; return new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)); };
+function obraFit(){
+  AR.root.remove(AR.fit);
+  model.position.set(0,0,0);
+  const m = SITE.markerM, P = new THREE.Vector3().fromArray(SITE.point), up = new THREE.Vector3(0,1,0);
+  const d = siteDirV((SITE.rot || 0) + AR.rot);
+  const R = new THREE.Matrix4();
+  if (SITE.mode === 'pe'){ const s = new THREE.Vector3(d.z, 0, -d.x); R.set(s.x,s.y,s.z,0, d.x,d.y,d.z,0, 0,-1,0,0, 0,0,0,1); }
+  else { const s = new THREE.Vector3(-d.z, 0, d.x); R.set(s.x,s.y,s.z,0, 0,1,0,0, -d.x,-d.y,-d.z,0, 0,0,0,1); }
+  const M = new THREE.Matrix4().makeScale(1/m, 1/m, 1/m).multiply(R).multiply(new THREE.Matrix4().makeTranslation(-P.x, -P.y, -P.z));
+  AR.fit.matrixAutoUpdate = false; AR.fit.matrix.copy(M); AR.fit.matrixWorldNeedsUpdate = true;
+  AR.root.add(AR.fit);
+}
+// distância até o ponto da folha pelo GPS (só como orientação)
+let geoWatch = null, geoDist = null;
+function distM(a1, o1, a2, o2){ const R = 6371000, r = Math.PI/180, dA = (a2-a1)*r, dO = (o2-o1)*r; const x = Math.sin(dA/2)**2 + Math.cos(a1*r)*Math.cos(a2*r)*Math.sin(dO/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+function startGeo(){
+  if (!SITE || SITE.lat == null || SITE.lon == null || !navigator.geolocation || geoWatch !== null) return;
+  geoWatch = navigator.geolocation.watchPosition(p=>{ geoDist = {d:distM(p.coords.latitude, p.coords.longitude, SITE.lat, SITE.lon), acc:p.coords.accuracy}; }, ()=>{}, {enableHighAccuracy:true});
+}
+function stopGeo(){ if (geoWatch !== null){ navigator.geolocation.clearWatch(geoWatch); geoWatch = null; } }
+function arFit(){
+  if (AR.obra){ obraFit(); return; }
+  AR.fit.matrixAutoUpdate = true;
+  AR.root.remove(AR.fit);
+  AR.fit.position.set(0,0,0); AR.fit.rotation.set(0,0,0); AR.fit.scale.setScalar(1);
+  model.position.set(0,0,0); AR.fit.updateMatrixWorld(true);
+  const b = new THREE.Box3(); model.traverse(o=>{ if (o.isMesh && isShown(o)) b.expandByObject(o); });
+  if (!b.isEmpty()){
+    const s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    model.position.set(-c.x, -b.min.y, -c.z);
+    AR.fit.scale.setScalar((2.4*AR.size)/Math.max(s.x, s.z, 0.001));
+    AR.fit.rotation.y = AR.rot*Math.PI/180;
+  }
+  AR.root.add(AR.fit);
+}
+function arLayout(){
+  const v = AR.video, vw = (v && v.videoWidth) || 640, vh = (v && v.videoHeight) || 480;
+  const W = window.innerWidth, H = window.innerHeight, s = Math.min(W/vw, H/vh);
+  const cw = Math.floor(vw*s), ch = Math.floor(vh*s);
+  renderer.setSize(cw, ch, true);
+  const cv = renderer.domElement; cv.style.position = 'fixed'; cv.style.left = ((W-cw)/2)+'px'; cv.style.top = ((H-ch)/2)+'px';
+}
+/* ---------- estabilização: o projeto não some quando a folha sai de vista por um instante ----------
+   Enquanto a folha é vista, guardamos a posição do projeto e a orientação do celular (giroscópio).
+   Se a leitura falha, o projeto continua no último lugar e é girado ao contrário do giro do celular,
+   ficando parado no mundo. Quando a folha volta à câmera, a posição é recalibrada. */
+const devQ = new THREE.Quaternion(); let devOK = false;
+const _eu = new THREE.Euler(), _zee = new THREE.Vector3(0,0,1), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+function onDevOri(e){
+  if (e.alpha == null) return;
+  const r = Math.PI/180, orient = ((screen.orientation && screen.orientation.angle) || window.orientation || 0)*r;
+  _eu.set(e.beta*r, e.alpha*r, -e.gamma*r, 'YXZ');
+  devQ.setFromEuler(_eu).multiply(_qb).multiply(_qa.setFromAxisAngle(_zee, -orient));
+  devOK = true;
+}
+async function startGyro(){
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      const p = await DeviceOrientationEvent.requestPermission(); if (p !== 'granted') return;
+    }
+    window.addEventListener('deviceorientation', onDevOri);
+  } catch(e){}
+}
+function stopGyro(){ window.removeEventListener('deviceorientation', onDevOri); devOK = false; }
+const HOLD_GYRO_MS = 15000, HOLD_PLAIN_MS = 700;
+AR.render = ()=>{
+  if (AR.src && AR.src.ready && AR.ctx && AR.ctx.arController){
+    AR.ctx.update(AR.src.domElement);
+    const now = performance.now(), seen = AR.root.visible;
+    if (seen){
+      AR.last = AR.root.matrix.clone(); AR.lastQ = devOK ? devQ.clone() : null; AR.lastT = now;
+      if (AR.lost) arMsg(''); AR.lost = 0; AR.holding = false;
+    } else {
+      AR.lost++;
+      const limit = AR.lastQ && devOK ? HOLD_GYRO_MS : HOLD_PLAIN_MS;
+      if (AR.last && now - AR.lastT < limit){
+        let m = AR.last;
+        if (AR.lastQ && devOK){ const dq = devQ.clone().invert().multiply(AR.lastQ); m = new THREE.Matrix4().makeRotationFromQuaternion(dq).multiply(AR.last); }
+        AR.root.matrix.copy(m); AR.root.matrixWorldNeedsUpdate = true; AR.root.visible = true;
+        if (!AR.holding && AR.lastQ && devOK && now - AR.lastT > 800){ AR.holding = true; arMsg('Folha fora de vista: o projeto está sendo mantido pelo giroscópio. Aponte de novo para a folha para recalibrar.'); }
+      } else if (AR.lost === 20 || (AR.obra && AR.lost % 30 === 0)){
+        arMsg((AR.obra && geoDist ? 'Ponto da folha a cerca de '+Math.round(geoDist.d)+' m (GPS ±'+Math.round(geoDist.acc)+' m). ' : '')+'Aponte a câmera para a folha impressa, com o símbolo inteiro e boa luz.');
+      }
+    }
+  }
+  renderer.render(AR.scene, AR.cam);
+};
+async function arOpen(obra){
+  AR.obra = obra === true && !!SITE;
+  $('arSizeL').hidden = AR.obra; $('arFlip').hidden = !AR.obra;
+  if (AR.obra) startGeo();
+  if (!model || AR.active) return;
+  document.body.classList.add('inar'); $('arUI').hidden = false; $('discPop').hidden = true;
+  arMsg('Preparando a câmera…');
+  try { await loadThreex(); } catch(e){ arMsg('Erro: '+e.message); return; }
+  AR.saved = {parent:model.parent, pos:model.position.clone(), pr:renderer.getPixelRatio(), bg:scene.background};
+  AR.fit.add(model); AR.size = parseFloat($('arSize').value)/100; AR.rot = 0; arFit();
+  const urls = {cam:b64Url(AR_CAM_B64,'application/octet-stream'), patt:b64Url(AR_PATT_B64,'text/plain')};
+  startGyro(); AR.last = null; AR.lastQ = null;
+  const src = new THREEx.ArToolkitSource({sourceType:'webcam', sourceWidth:1280, sourceHeight:960});
+  AR.src = src;
+  src.init(()=>{
+    const v = src.domElement; AR.video = v;
+    v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0';
+    v.setAttribute('playsinline',''); v.muted = true; const pp = v.play && v.play(); if (pp && pp.catch) pp.catch(()=>{});
+    AR.vtex = new THREE.VideoTexture(v); AR.vtex.encoding = THREE.sRGBEncoding; AR.scene.background = AR.vtex;
+    renderer.setPixelRatio(1);
+    const go = ()=>{
+      const ctx = new THREEx.ArToolkitContext({cameraParametersUrl:urls.cam, detectionMode:'mono', maxDetectionRate:30, canvasWidth:v.videoWidth||640, canvasHeight:v.videoHeight||480});
+      AR.ctx = ctx;
+      ctx.init(()=>{
+        AR.cam.projectionMatrix.copy(ctx.getProjectionMatrix());
+        // limiar adaptativo: reconhece melhor com pouca luz ou luz desigual
+        try { if (ctx.arController && ctx.arController.setThresholdMode) ctx.arController.setThresholdMode(3); } catch(e){}
+      });
+      new THREEx.ArMarkerControls(ctx, AR.root, {type:'pattern', patternUrl:urls.patt, changeMatrixMode:'modelViewMatrix', smooth:true, smoothCount:8, smoothTolerance:0.01, smoothThreshold:2});
+      AR.active = true; arLayout();
+      arMsg(AR.obra ? 'Escala real: aponte para a folha da obra. O projeto aparece em tamanho real, a partir do ponto da folha.' : 'Aponte a câmera para a folha impressa.');
+    };
+    if (v.readyState >= 1) go(); else v.addEventListener('loadedmetadata', go, {once:true});
+  }, err=>{ console.error(err); arMsg('Não foi possível ligar a câmera. Permita o acesso à câmera no navegador.'); });
+}
+function arClose(){
+  stopGeo(); stopGyro(); AR.fit.matrixAutoUpdate = true;
+  AR.active = false;
+  if (AR.video){ const st = AR.video.srcObject; if (st) st.getTracks().forEach(t=>t.stop()); AR.video.remove(); AR.video = null; }
+  if (AR.vtex){ AR.vtex.dispose(); AR.vtex = null; }
+  AR.scene.background = null; AR.src = null; AR.ctx = null;
+  if (AR.saved){ (AR.saved.parent || scene).add(model); model.position.copy(AR.saved.pos); renderer.setPixelRatio(AR.saved.pr); AR.saved = null; }
+  const cv = renderer.domElement; cv.style.position = ''; cv.style.left = ''; cv.style.top = ''; cv.style.width = ''; cv.style.height = '';
+  document.body.classList.remove('inar'); $('arUI').hidden = true; arMsg('');
+  resize(); fitSun();
+}
+function arPrint(){
+  const w = window.open('', '_blank'); if (!w) return;
+  w.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Folha de realidade aumentada</title><style>@page{size:A4;margin:12mm}body{font-family:Manrope,Segoe UI,Arial,sans-serif;text-align:center;color:#1c2733}img{width:150mm;height:150mm;margin:8mm auto;display:block;image-rendering:pixelated}button{font-size:13pt;padding:8px 16px}@media print{button{display:none}}</style></head><body><h1>Realidade aumentada do projeto</h1><p>Imprima em tamanho real (100%). Não dobre a folha.</p><img src="'+AR_HIRO_PNG+'" alt="Símbolo de realidade aumentada"><p>Abra o link do projeto, toque em Realidade aumentada e aponte a câmera para esta folha.</p><button onclick="window.print()">Imprimir</button></body></html>');
+  w.document.close();
+}
+/* ======================= CUBO DE NAVEGAÇÃO (estilo ViewCube do AutoCAD) =======================
+   Gira junto com a vista. Clique numa face (TOPO = planta baixa), numa aresta ou num canto para ir
+   àquela vista; clique em N, S, L ou O na rosa dos ventos; arraste o cubo para girar; a casinha volta
+   à vista inicial. Norte = −Z do modelo (o mesmo usado na realidade aumentada da obra). */
+function makeViewCube(host, camera, controls, opts){
+  opts = opts || {};
+  const S = opts.size || 132;
+  const wrap = document.createElement('div'); wrap.className = 'vcube'; wrap.style.width = S+'px';
+  wrap.innerHTML = '<button type="button" class="vchome" title="Vista inicial" aria-label="Vista inicial">⌂</button>';
+  const cv = document.createElement('canvas'); cv.width = S*2; cv.height = S*2; cv.style.width = S+'px'; cv.style.height = S+'px';
+  cv.setAttribute('aria-label', 'Cubo de navegação: clique numa face para mudar a vista');
+  wrap.appendChild(cv);
+  const cutBox = document.createElement('div'); cutBox.className = 'vccut'; cutBox.hidden = true;
+  cutBox.innerHTML = '<button type="button" data-c="new">✂ Corte</button><button type="button" data-c="flip" hidden>⇅ Inverter</button><button type="button" data-c="del" hidden>Remover corte</button><div class="vcfill" hidden><select title="Preenchimento das faces cortadas" aria-label="Preenchimento das faces cortadas"><option value="1">▦ Hachura</option><option value="0">■ Cor lisa</option><option value="-1">Sem preench.</option></select><input type="color" title="Cor do preenchimento" aria-label="Cor do preenchimento" value="#d8d2c8"></div><p></p>';
+  wrap.appendChild(cutBox); host.appendChild(wrap);
+  const r = new THREE.WebGLRenderer({canvas:cv, alpha:true, antialias:true});
+  r.setPixelRatio(1); r.setSize(S*2, S*2, false);
+  if ('outputEncoding' in r) r.outputEncoding = THREE.sRGBEncoding;
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+  sc.add(new THREE.AmbientLight(0xffffff, 0.75)); const dl = new THREE.DirectionalLight(0xffffff, 0.55); dl.position.set(2,3,4); sc.add(dl);
+  // faces com texto
+  const faceTex = (label)=>{
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    g.fillStyle = '#d9dee4'; g.fillRect(0,0,256,256); g.strokeStyle = '#8c96a1'; g.lineWidth = 10; g.strokeRect(5,5,246,246);
+    g.fillStyle = '#2b333c'; g.font = 'bold '+(label.length > 6 ? 40 : 52)+'px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(label, 128, 132);
+    const t = new THREE.CanvasTexture(c); if ('encoding' in t) t.encoding = THREE.sRGBEncoding; return t;
+  };
+  // ordem do BoxGeometry: +X, −X, +Y, −Y, +Z, −Z
+  const labels = ['DIREITA','ESQUERDA','TOPO','BASE','FRENTE','TRÁS'];
+  const mats = labels.map(l=>new THREE.MeshLambertMaterial({map:faceTex(l)}));
+  const cube = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mats); sc.add(cube);
+  cube.add(new THREE.LineSegments(new THREE.EdgesGeometry(cube.geometry), new THREE.LineBasicMaterial({color:0x5b6570})));
+  // rosa dos ventos
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.12, 64), new THREE.MeshBasicMaterial({color:0x6b7580, side:THREE.DoubleSide, transparent:true, opacity:0.85}));
+  ring.rotation.x = -Math.PI/2; ring.position.y = -0.62; sc.add(ring);
+  const letters = [];
+  [['N',0,-1],['S',0,1],['L',1,0],['O',-1,0]].forEach(([t,x,z])=>{
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = t === 'N' ? '#e14b3b' : '#eef2f6'; g.font = 'bold 92px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 64, 70);
+    const tex = new THREE.CanvasTexture(c); if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:true}));
+    sp.scale.set(0.42, 0.42, 1); sp.position.set(x*1.32, -0.62, z*1.32); sp.userData.dir = new THREE.Vector3(x, 0, z);
+    sc.add(sp); letters.push(sp);
+  });
+  // destaque da região apontada (face, aresta ou canto)
+  const hl = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({color:0x6E95FF, transparent:true, opacity:0.45, depthTest:false}));
+  hl.visible = false; sc.add(hl);
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pick(e){
+    const rc = cv.getBoundingClientRect();
+    ndc.set(((e.clientX-rc.left)/rc.width)*2-1, -((e.clientY-rc.top)/rc.height)*2+1);
+    ray.setFromCamera(ndc, cam);
+    const l = ray.intersectObjects(letters)[0];
+    if (l) return {dir:l.object.userData.dir.clone(), letter:l.object};
+    const h = ray.intersectObject(cube, false)[0];
+    if (!h) return null;
+    const p = h.point, d = new THREE.Vector3(Math.abs(p.x) > 0.3 ? Math.sign(p.x) : 0, Math.abs(p.y) > 0.3 ? Math.sign(p.y) : 0, Math.abs(p.z) > 0.3 ? Math.sign(p.z) : 0);
+    if (d.lengthSq() === 0) return null;
+    return {dir:d};
+  }
+  function showHL(d){
+    if (!d){ hl.visible = false; return; }
+    const sz = v=>v === 0 ? 1.02 : 0.32;
+    hl.scale.set(sz(d.x), sz(d.y), sz(d.z));
+    hl.position.set(d.x ? d.x*0.35 : 0, d.y ? d.y*0.35 : 0, d.z ? d.z*0.35 : 0);
+    hl.visible = true;
+  }
+  // animação da câmera principal
+  let anim = null;
+  function goDir(d){
+    const t = controls.target.clone(), dist = camera.position.distanceTo(t);
+    const dir = d.clone().normalize();
+    if (Math.abs(dir.y) > 0.999) dir.set(0, Math.sign(dir.y), 0.0012*Math.sign(dir.y)).normalize();   // planta: norte para cima
+    anim = {from:camera.position.clone().sub(t).normalize(), to:dir, dist, t0:performance.now()};
+  }
+  function goHorizontal(d){
+    // N, S, L, O: mantém a inclinação atual e gira para olhar daquele lado
+    const t = controls.target.clone(), off = camera.position.clone().sub(t);
+    const el = Math.asin(Math.max(-1, Math.min(1, off.clone().normalize().y)));
+    const h = d.clone().normalize().multiplyScalar(Math.cos(el)); goDir(new THREE.Vector3(h.x, Math.sin(el), h.z));
+  }
+  // arrastar o cubo gira a vista
+  let drag = null;
+  cv.addEventListener('pointerdown', e=>{ drag = {x:e.clientX, y:e.clientY, moved:false}; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e=>{
+    if (drag){
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      drag.moved = true; drag.x = e.clientX; drag.y = e.clientY; anim = null;
+      const t = controls.target, off = camera.position.clone().sub(t), sph = new THREE.Spherical().setFromVector3(off);
+      sph.theta -= dx*0.012; sph.phi = Math.max(0.01, Math.min(Math.PI-0.01, sph.phi - dy*0.012));
+      camera.position.copy(t).add(new THREE.Vector3().setFromSpherical(sph)); camera.lookAt(t); controls.update();
+      return;
+    }
+    const p = pick(e); showHL(p && !p.letter ? p.dir : null); cv.style.cursor = p ? 'pointer' : 'grab';
+  });
+  cv.addEventListener('pointerup', e=>{
+    const d = drag; drag = null;
+    if (d && d.moved) return;
+    const p = pick(e); if (!p) return;
+    if (p.letter) goHorizontal(p.dir); else goDir(p.dir);
+  });
+  cv.addEventListener('pointerleave', ()=>{ if (!drag) showHL(null); });
+  wrap.querySelector('.vchome').onclick = ()=>{ anim = null; if (opts.onHome) opts.onHome(); };
+  /* ---------- CORTE (seção vertical) ----------
+     Na vista TOPO: "Corte" → clique em 2 pontos → linha de corte com triângulos nas pontas.
+     O triângulo aponta para o lado que continua visível; clicar nele inverte. Arrastar a linha a move.
+     Fora da vista de topo, o projeto aparece cortado. */
+  const R3 = opts.renderer, SC = opts.scene;
+  const cut = {state:'off', A:null, B:null, side:1, plane:new THREE.Plane(), helpers:null, drag:null, frame:0};
+  cut.planes = [cut.plane];
+  if (R3) R3.localClippingEnabled = true;
+  const cutMsg = t=>{ cutBox.querySelector('p').textContent = t || ''; };
+  const isTop = ()=>camera.position.clone().sub(controls.target).normalize().y > 0.97;
+  function bounds(){ const b = opts.bounds ? opts.bounds() : null; return b && !b.isEmpty() ? b : new THREE.Box3(new THREE.Vector3(-10,0,-10), new THREE.Vector3(10,10,10)); }
+  function groundHit(e){
+    const el = R3.domElement, rc = el.getBoundingClientRect();
+    const n = new THREE.Vector2(((e.clientX-rc.left)/rc.width)*2-1, -((e.clientY-rc.top)/rc.height)*2+1);
+    const rr = new THREE.Raycaster(); rr.setFromCamera(n, camera);
+    const p = new THREE.Vector3(); return rr.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0), -bounds().min.y), p) ? p : null;
+  }
+  /* Preenchimento das faces cortadas (hachura ou cor lisa).
+     As peças atravessadas pelo plano passam a desenhar os dois lados; o lado de dentro (gl_FrontFacing falso),
+     que só aparece pela abertura do corte, é pintado com a cor do preenchimento, sem luz, como num corte de projeto.
+     Peças que não cruzam o plano e materiais transparentes ficam como estavam. */
+  cut.fill = {mode:1, color:'#d8d2c8'};
+  try { const sv = JSON.parse(localStorage.getItem('cgvCapFill') || 'null');
+    if (sv && [1,0,-1].indexOf(sv.mode) >= 0) cut.fill = {mode:sv.mode, color:/^#[0-9a-f]{6}$/i.test(sv.color) ? sv.color : '#d8d2c8'}; } catch(e){}
+  cut.capMats = new Set();
+  const CAP = {cgCapColor:{value:new THREE.Color(cut.fill.color)}, cgCapMode:{value:cut.fill.mode}, cgPR:{value:1}};
+  const CAP_GLSL = 'if (cgCapOn > 0.5 && !gl_FrontFacing) { vec3 cgC = cgCapColor;'
+    + ' if (cgCapMode > 0.5 && mod(gl_FragCoord.x + gl_FragCoord.y, 9.0*cgPR) < 1.5*cgPR) cgC = mix(cgC, vec3(0.1), 0.75);'
+    + ' gl_FragColor = vec4(cgC, diffuseColor.a); }';
+  const capOK = m=>m && (m.isMeshStandardMaterial || m.isMeshPhongMaterial || m.isMeshLambertMaterial || m.isMeshBasicMaterial || m.isMeshToonMaterial)
+    && !(m.transparent && m.opacity < 0.98) && !(m.transmission > 0);
+  function capPatch(m){
+    // marcas fora de userData, para não irem parar no GLB exportado
+    if (m.__cgCap) return; m.__cgCap = true; m.__cgOn = {value:0};
+    const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+    m.onBeforeCompile = function(sh, rr){
+      if (prev) prev.call(this, sh, rr);
+      if (sh.fragmentShader.indexOf('#include <dithering_fragment>') < 0) return;
+      Object.assign(sh.uniforms, CAP, {cgCapOn:m.__cgOn});
+      sh.fragmentShader = 'uniform float cgCapOn;\nuniform vec3 cgCapColor;\nuniform float cgCapMode;\nuniform float cgPR;\n'
+        + sh.fragmentShader.replace('#include <dithering_fragment>', CAP_GLSL + '\n#include <dithering_fragment>');
+    };
+    m.customProgramCacheKey = function(){ return (prevKey ? prevKey.call(this) : '') + '|cgcap'; };
+    m.needsUpdate = true;
+  }
+  const capBox = new THREE.Box3();
+  function crosses(o){
+    const g = o.geometry; if (!g || !g.attributes || !g.attributes.position) return false;
+    if (!g.boundingBox) g.computeBoundingBox();
+    capBox.copy(g.boundingBox).applyMatrix4(o.matrixWorld);
+    return cut.plane.intersectsBox(capBox);
+  }
+  function applyClip(){
+    const on = cut.state === 'on', planes = on ? cut.planes : null, fill = on && cut.fill.mode >= 0;
+    const want = new Set();
+    (opts.targets ? opts.targets() : []).forEach(root=>root && root.traverse(o=>{
+      if (!o.isMesh || o.userData.noClip) return;
+      const ms = (Array.isArray(o.material) ? o.material : [o.material]);
+      ms.forEach(m=>{ if (m && m.clippingPlanes !== planes){ m.clippingPlanes = planes; m.clipShadows = true; m.needsUpdate = true; } });
+      if (fill && crosses(o)) ms.forEach(m=>{ if (capOK(m)) want.add(m); });
+    }));
+    want.forEach(m=>{
+      capPatch(m);
+      if (!m.__cgCapOn){ m.__cgSide0 = m.side; m.__cgCapOn = true; }
+      m.__cgOn.value = 1;
+      if (m.side !== THREE.DoubleSide){ m.side = THREE.DoubleSide; m.needsUpdate = true; }
+    });
+    cut.capMats.forEach(m=>{ if (!want.has(m) && m.__cgCapOn){ m.__cgOn.value = 0; m.side = m.__cgSide0; m.__cgCapOn = false; m.needsUpdate = true; } });
+    cut.capMats = want;
+    CAP.cgCapMode.value = cut.fill.mode; CAP.cgCapColor.value.set(cut.fill.color);
+    if (R3) CAP.cgPR.value = R3.getPixelRatio();
+  }
+  const fillRow = cutBox.querySelector('.vcfill'), fillSel = fillRow.querySelector('select'), fillCol = fillRow.querySelector('input');
+  fillSel.value = String(cut.fill.mode); fillCol.value = cut.fill.color; fillCol.hidden = cut.fill.mode < 0;
+  const saveFill = ()=>{ try { localStorage.setItem('cgvCapFill', JSON.stringify(cut.fill)); } catch(e){} };
+  fillSel.addEventListener('change', ()=>{ cut.fill.mode = +fillSel.value; fillCol.hidden = cut.fill.mode < 0; saveFill(); applyClip(); });
+  fillCol.addEventListener('input', ()=>{ cut.fill.color = fillCol.value; CAP.cgCapColor.value.set(fillCol.value); saveFill(); });
+  function updatePlane(){
+    const u = cut.B.clone().sub(cut.A); u.y = 0; u.normalize();
+    const n = new THREE.Vector3(u.z, 0, -u.x).multiplyScalar(cut.side);
+    cut.plane.setFromNormalAndCoplanarPoint(n, cut.A);
+    drawHelpers();
+  }
+  function drawHelpers(){
+    if (cut.helpers){ SC.remove(cut.helpers); cut.helpers.traverse(o=>{ if (o.geometry) o.geometry.dispose(); }); cut.helpers = null; }
+    if (!cut.A || !cut.B) return;
+    const b = bounds(), L = Math.max(b.max.x-b.min.x, b.max.z-b.min.z, 1), y = b.max.y + 0.02*L;
+    const g = new THREE.Group(); g.renderOrder = 999;
+    const red = new THREE.MeshBasicMaterial({color:0xe53935, depthTest:false, transparent:true});
+    const A = cut.A.clone().setY(y), B = cut.B.clone().setY(y), u = B.clone().sub(A), len = u.length();
+    const ext = len + 0.1*L, mid = A.clone().add(B).multiplyScalar(0.5);
+    const line = new THREE.Mesh(new THREE.BoxGeometry(ext, 0.002*L, 0.006*L), red);
+    line.position.copy(mid); line.rotation.y = -Math.atan2(u.z, u.x); line.userData.cutPart = 'line'; line.renderOrder = 999; g.add(line);
+    // linha "fantasma" mais grossa, só para facilitar o clique
+    const grab = new THREE.Mesh(new THREE.BoxGeometry(ext, 0.002*L, 0.04*L), new THREE.MeshBasicMaterial({visible:false}));
+    grab.position.copy(mid); grab.rotation.y = line.rotation.y; grab.userData.cutPart = 'line'; g.add(grab);
+    const n = cut.plane.normal.clone(), s = 0.035*L;
+    [A, B].forEach(P=>{
+      const sh = new THREE.Shape(); sh.moveTo(-s*0.6, 0); sh.lineTo(s*0.6, 0); sh.lineTo(0, s*1.1); sh.closePath();
+      const tri = new THREE.Mesh(new THREE.ShapeGeometry(sh), red);
+      tri.rotation.x = -Math.PI/2; tri.position.copy(P).addScaledVector(n, 0.012*L);
+      const wrapT = new THREE.Group(); wrapT.add(tri); tri.position.set(0,0,0);
+      wrapT.position.copy(P).addScaledVector(n, 0.01*L); wrapT.rotation.y = Math.atan2(n.x, n.z) + Math.PI;
+      tri.renderOrder = 999; tri.userData.cutPart = 'tri';
+      const hit = new THREE.Mesh(new THREE.CircleGeometry(s*1.1, 16), new THREE.MeshBasicMaterial({visible:false}));
+      hit.rotation.x = -Math.PI/2; hit.userData.cutPart = 'tri'; wrapT.add(hit);
+      g.add(wrapT);
+    });
+    // fora da vista de topo: o corte aparece como um plano vermelho transparente, que pode ser arrastado
+    const H = Math.max(b.max.y - b.min.y, 0.5), ny = (b.min.y + b.max.y)/2;
+    const side = new THREE.Group(); side.userData.sideOnly = true;
+    const pm = new THREE.Mesh(new THREE.PlaneGeometry(ext, H*1.15), new THREE.MeshBasicMaterial({color:0xe53935, transparent:true, opacity:0.16, side:THREE.DoubleSide, depthWrite:false}));
+    pm.userData.cutPart = 'plane';
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(pm.geometry), new THREE.LineBasicMaterial({color:0xe53935, transparent:true, opacity:0.8}));
+    side.add(pm); side.add(edge);
+    side.position.set(mid.x, ny, mid.z); side.rotation.y = line.rotation.y;
+    // setas indicando o lado visível
+    const ar = new THREE.ArrowHelper(n.clone(), new THREE.Vector3(mid.x, ny, mid.z), 0.08*L, 0xe53935, 0.03*L, 0.02*L); ar.userData.sideOnly = true;
+    g.add(side); g.add(ar);
+    g.children.forEach(o=>{ if (!o.userData.sideOnly) o.userData.topOnly = true; });
+    g.traverse(o=>{ o.userData.noClip = true; });
+    SC.add(g); cut.helpers = g;
+  }
+  function helperHit(e){
+    if (!cut.helpers || !cut.helpers.visible) return null;
+    const el = R3.domElement, rc = el.getBoundingClientRect();
+    const rr = new THREE.Raycaster(); rr.setFromCamera(new THREE.Vector2(((e.clientX-rc.left)/rc.width)*2-1, -((e.clientY-rc.top)/rc.height)*2+1), camera);
+    const shown = o=>{ while (o){ if (!o.visible) return false; o = o.parent; } return true; };
+    const h = rr.intersectObject(cut.helpers, true).find(x=>x.object.userData.cutPart && shown(x.object));
+    return h ? h.object.userData.cutPart : null;
+  }
+  // linha-guia pontilhada do 1º ponto até o cursor, enquanto se escolhe o 2º ponto
+  function guide(p){
+    if (cut.guide){ SC.remove(cut.guide); cut.guide.traverse(o=>{ if (o.geometry) o.geometry.dispose(); }); cut.guide = null; }
+    if (!p || !cut.A) return;
+    const b = bounds(), L = Math.max(b.max.x-b.min.x, b.max.z-b.min.z, 1), y = b.max.y + 0.02*L;
+    const g = new THREE.Group();
+    const geo = new THREE.BufferGeometry().setFromPoints([cut.A.clone().setY(y), p.clone().setY(y)]);
+    const ln = new THREE.Line(geo, new THREE.LineDashedMaterial({color:0xe53935, dashSize:0.015*L, gapSize:0.01*L, depthTest:false, transparent:true}));
+    ln.computeLineDistances(); ln.renderOrder = 1000; g.add(ln);
+    const dot = new THREE.Mesh(new THREE.CircleGeometry(0.008*L, 20), new THREE.MeshBasicMaterial({color:0xe53935, depthTest:false, transparent:true}));
+    dot.rotation.x = -Math.PI/2; dot.position.copy(cut.A).setY(y); dot.renderOrder = 1000; g.add(dot);
+    g.traverse(o=>{ o.userData.noClip = true; });
+    SC.add(g); cut.guide = g;
+    const d = p.distanceTo(new THREE.Vector3(cut.A.x, p.y, cut.A.z));
+    cutMsg('Agora clique no 2º ponto. Distância: '+d.toFixed(2).replace('.', ',')+' m');
+  }
+  function cutUI(){
+    const top = isTop(), has = cut.state === 'on';
+    cutBox.hidden = !(top || has || cut.state === 'pickA' || cut.state === 'pickB');
+    cutBox.querySelector('[data-c="new"]').hidden = !(top && !has && cut.state === 'off');
+    cutBox.querySelector('[data-c="flip"]').hidden = !has;
+    cutBox.querySelector('[data-c="del"]').hidden = !(has || cut.state === 'pickA' || cut.state === 'pickB');
+    fillRow.hidden = !has;
+  }
+  function endPick(){ controls.enabled = true; R3.domElement.style.cursor = ''; }
+  cutBox.addEventListener('click', e=>{
+    const c = e.target.dataset && e.target.dataset.c; if (!c) return;
+    if (c === 'new'){ cut.state = 'pickA'; controls.enabled = false; R3.domElement.style.cursor = 'crosshair'; cutMsg('Clique no 1º ponto da linha de corte.'); }
+    if (c === 'flip' && cut.state === 'on'){ cut.side *= -1; updatePlane(); }
+    if (c === 'del'){ cut.state = 'off'; guide(null); cut.A = cut.B = null; drawHelpers(); applyClip(); endPick(); cutMsg(''); }
+    cutUI();
+  });
+  if (R3){
+    const el = R3.domElement;
+    el.addEventListener('pointerdown', e=>{
+      if (cut.state === 'pickA' || cut.state === 'pickB'){ e.stopImmediatePropagation(); return; }
+      if (cut.state === 'on' && !isTop()){
+        const part = helperHit(e);
+        if (part === 'plane'){ e.stopImmediatePropagation(); cut.drag = {mode:'normal', x:e.clientX, y:e.clientY}; controls.enabled = false; el.setPointerCapture(e.pointerId); }
+        return;
+      }
+      if (cut.state === 'on' && isTop()){
+        const part = helperHit(e);
+        if (part === 'tri'){ e.stopImmediatePropagation(); cut.side *= -1; updatePlane(); return; }
+        if (part === 'line'){ e.stopImmediatePropagation(); const p = groundHit(e); if (p){ cut.drag = {p}; controls.enabled = false; el.setPointerCapture(e.pointerId); } }
+      }
+    }, true);
+    el.addEventListener('pointermove', e=>{
+      if (cut.drag && cut.drag.mode === 'normal'){
+        e.stopImmediatePropagation();
+        // quanto 1 metro na direção do corte anda na tela, para converter o arraste do mouse em metros
+        const rc = el.getBoundingClientRect(), b = bounds(), ny = (b.min.y + b.max.y)/2;
+        const c0 = cut.A.clone().add(cut.B).multiplyScalar(0.5).setY(ny), n = cut.plane.normal.clone();
+        const toPx = v=>{ const q = v.clone().project(camera); return new THREE.Vector2((q.x+1)/2*rc.width, (1-q.y)/2*rc.height); };
+        const s = toPx(c0.clone().add(n)).sub(toPx(c0));
+        const len2 = s.lengthSq(); if (len2 < 1) return;
+        const d = ((e.clientX - cut.drag.x)*s.x + (e.clientY - cut.drag.y)*s.y)/len2;
+        cut.drag.x = e.clientX; cut.drag.y = e.clientY;
+        cut.A.addScaledVector(n, d); cut.B.addScaledVector(n, d); updatePlane();
+        return;
+      }
+      if (cut.drag){ e.stopImmediatePropagation(); const p = groundHit(e); if (!p) return; const d = p.clone().sub(cut.drag.p); d.y = 0; cut.A.add(d); cut.B.add(d); cut.drag.p = p; updatePlane(); return; }
+      if (cut.state === 'pickB'){ const p = groundHit(e); if (p) guide(p); return; }
+      if (cut.state === 'on'){ const part = helperHit(e); el.style.cursor = part === 'line' || part === 'plane' ? 'move' : part === 'tri' ? 'pointer' : ''; }
+    }, true);
+    el.addEventListener('pointerup', e=>{
+      if (cut.drag){ e.stopImmediatePropagation(); cut.drag = null; controls.enabled = true; applyClip(); return; }
+      if (cut.state !== 'pickA' && cut.state !== 'pickB') return;
+      e.stopImmediatePropagation();
+      const p = groundHit(e); if (!p) return;
+      if (cut.state === 'pickA'){ cut.A = p; cut.state = 'pickB'; guide(p); }
+      else {
+        if (p.distanceTo(cut.A) < 0.05){ cutMsg('Clique num ponto mais distante.'); return; }
+        cut.B = p; cut.state = 'on'; cut.side = 1; guide(null); updatePlane(); applyClip(); endPick();
+        cutMsg('Corte criado. Clique no triângulo (ou em Inverter) para trocar o lado visível; arraste a linha para movê-la. Saia da vista de topo para ver o corte.');
+        setTimeout(()=>{ if (cut.state === 'on') cutMsg(''); }, 9000);
+      }
+      cutUI();
+    }, true);
+  }
+  // laço próprio: segue a câmera principal e anima as mudanças de vista
+  (function loop(){
+    requestAnimationFrame(loop);
+    if (!wrap.isConnected || wrap.getClientRects().length === 0) return;
+    if (anim){
+      const k = Math.min(1, (performance.now() - anim.t0)/450), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+      const v = new THREE.Vector3().copy(anim.from).lerp(anim.to, e);
+      if (v.lengthSq() < 1e-6) v.copy(anim.to); v.normalize();
+      camera.position.copy(controls.target).addScaledVector(v, anim.dist); camera.lookAt(controls.target); controls.update();
+      if (k >= 1) anim = null;
+    }
+    const off = camera.position.clone().sub(controls.target).normalize();
+    cam.position.copy(off).multiplyScalar(4.6); cam.up.copy(camera.up); cam.lookAt(0, 0, 0);
+    r.render(sc, cam);
+    if (R3){
+      if (cut.helpers){ const top = isTop(); cut.helpers.children.forEach(o=>{ o.visible = o.userData.sideOnly ? !top : top; }); }
+      if (cut.state === 'on' && ++cut.frame % 20 === 0) applyClip();   // materiais recriados recebem o corte
+      cutUI();
+    }
+  })();
+  return {el:wrap, goDir, goHorizontal, cut};
+}
+
+const viewCube = makeViewCube(document.body, camera, controls, {size:Math.min(window.innerWidth, window.innerHeight) < 600 ? 100 : 132, onHome:()=>home(), renderer, scene, targets:()=>[model], bounds:()=>model ? new THREE.Box3().setFromObject(model) : null});
+$('bAR').onclick = ()=>showObraPick('maquete');
+$('bObra').onclick = ()=>showObraPick('obra');
+$('arFlip').onclick = ()=>{ AR.rot += 180; arFit(); };
+if (SITE) $('bObra').hidden = false;
+
+/* ---------- modo estável (Android): WebXR + ARCore ----------
+   O celular "memoriza" o ambiente; a folha serve só para marcar o ponto no chão.
+   1º toque: pé da folha (ponto de partida); 2º toque: um ponto à direita (eixo X da folha). */
+const XR = {active:false, kind:'obra', dy:0, anchor:null, session:null, hts:null, step:0, A:null, B:null, rot:0, scale:1, group:new THREE.Group(), reticle:null, markA:null, saved:null};
+function xrMsg(t){ $('xrMsg').textContent = t || ''; }
+async function xrSupported(){ try { return !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')); } catch(e){ return false; } }
+async function xrStart(kind){
+  XR.kind = kind === 'maquete' ? 'maquete' : 'obra';
+  if (!model || (XR.kind === 'obra' && !SITE)) return;
+  if (!(await xrSupported())){ alert('Este celular ou navegador não tem o modo estável. Use o Google Chrome atualizado num Android compatível com ARCore, ou use a folha impressa.'); return; }
+  let session;
+  try { session = await navigator.xr.requestSession('immersive-ar', {requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay','anchors','camera-access'], domOverlay:{root:$('xrUI')}}); }
+  catch(e){ alert('Não foi possível abrir a realidade aumentada: '+e.message); return; }
+  XR.saved = {bg:scene.background, parent:model.parent, catcher:catcher.visible, shadow:renderer.shadowMap.enabled, rot:controls.autoRotate};
+  scene.background = null; catcher.visible = false; renderer.shadowMap.enabled = false; controls.autoRotate = false;
+  if (!XR.reticle){
+    XR.reticle = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.1, 32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:0x6E95FF}));
+    XR.reticle.matrixAutoUpdate = false;
+    XR.markA = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 16), new THREE.MeshBasicMaterial({color:0xff7a00}));
+  }
+  scene.add(XR.reticle); XR.reticle.visible = false;
+  scene.add(XR.group); XR.group.add(model); XR.group.visible = false; XR.markA.visible = false; scene.add(XR.markA);
+  renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(session);
+  XR.session = session; XR.active = true; XR.step = 0; XR.rot = 0; XR.userExit = false; shotCount();
+  const mq = XR.kind === 'maquete';
+  $('xrRowMq').hidden = !mq;
+  $('xrL').textContent = mq ? '↺ 15°' : '↺ 1°'; $('xrR').textContent = mq ? '↻ 15°' : '↻ 1°';
+  if (mq){ const b = new THREE.Box3().setFromObject(model), s = b.getSize(new THREE.Vector3()); XR.scale = 0.6/Math.max(s.x, s.z, 0.01); }
+  document.body.classList.add('inxr'); $('xrUI').hidden = false;
+  const vs = await session.requestReferenceSpace('viewer');
+  XR.hts = await session.requestHitTestSource({space:vs});
+  session.addEventListener('select', xrSelect);
+  session.addEventListener('end', xrEnded);
+  $('xrPanel').addEventListener('beforexrselect', e=>e.preventDefault());
+  $('xrShotBox').addEventListener('beforexrselect', e=>e.preventDefault());
+  xrMsg(XR.kind === 'maquete' ? 'Mova o celular devagar até aparecer o círculo azul na mesa ou no chão. Toque na tela para colocar a maquete.' : 'Mova o celular devagar até aparecer o círculo azul no chão. Depois toque na tela com o círculo no PÉ DA FOLHA (bem abaixo do centro do símbolo).');
+}
+function xrHeightLabel(){ $('xrH').textContent = XR.step === 2 ? 'Ajuste de altura: '+(XR.dy >= 0 ? '+' : '')+XR.dy.toFixed(2).replace('.', ',')+' m' : ''; }
+// cria uma âncora no ponto de partida: o ARCore corrige a posição dela enquanto refina o mapa do ambiente
+function xrAnchor(frame){
+  if (!XR.wantAnchor || !frame.createAnchor) return;
+  XR.wantAnchor = false;
+  try {
+    frame.createAnchor(new XRRigidTransform({x:XR.A.x, y:XR.A.y, z:XR.A.z}), renderer.xr.getReferenceSpace())
+      .then(a=>{ if (XR.anchor) XR.anchor.delete(); XR.anchor = a; XR.anchorBase = XR.A.clone(); XR.Bbase = XR.B ? XR.B.clone() : null; }).catch(()=>{});
+  } catch(e){}
+}
+/* ---------- foto: imagem da câmera + projeto 3D, montadas numa só imagem ----------
+   Usa o acesso à câmera do WebXR (Chrome no Android). Se não houver, esconde os botões para o print manual. */
+let shotBlob = null;
+function xrCapture(frame){
+  XR.wantShot = false;
+  const ref = renderer.xr.getReferenceSpace(), pose = frame.getViewerPose(ref);
+  const view = pose && pose.views[0];
+  if (!view || !view.camera || typeof XRWebGLBinding === 'undefined'){ manualShot(); return; }
+  const gl = renderer.getContext(), w = view.camera.width, h = view.camera.height;
+  if (!XR.binding) XR.binding = new XRWebGLBinding(XR.session, gl);
+  const camTex = XR.binding.getCameraImage(view.camera);
+  if (!camTex){ manualShot(); return; }
+  // 1) imagem da câmera: a textura do WebXR é desenhada num retângulo e lida de volta (como no exemplo oficial do three.js)
+  if (!XR.camTexture){
+    XR.camTexture = new THREE.Texture();
+    XR.camScene = new THREE.Scene();
+    XR.camScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({map:XR.camTexture, depthTest:false, depthWrite:false, toneMapped:false})));
+    XR.camOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  }
+  const props = renderer.properties.get(XR.camTexture); props.__webglTexture = camTex; props.__webglInit = true; props.__version = XR.camTexture.version;
+  const rtc = new THREE.WebGLRenderTarget(w, h);
+  const prevRT0 = renderer.getRenderTarget();
+  renderer.xr.enabled = false; renderer.setRenderTarget(rtc); renderer.clear(); renderer.render(XR.camScene, XR.camOrtho);
+  const camPx = new Uint8Array(w*h*4); renderer.readRenderTargetPixels(rtc, 0, 0, w, h, camPx);
+  renderer.setRenderTarget(prevRT0); renderer.xr.enabled = true; rtc.dispose();
+  // 2) projeto 3D, desenhado com a mesma câmera do celular
+  const cam = new THREE.PerspectiveCamera(); cam.matrixAutoUpdate = false;
+  cam.matrix.fromArray(view.transform.matrix); cam.matrixWorld.copy(cam.matrix); cam.matrixWorldInverse.copy(cam.matrix).invert();
+  cam.projectionMatrix.fromArray(view.projectionMatrix); cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+  const rt = new THREE.WebGLRenderTarget(w, h); rt.texture.encoding = THREE.sRGBEncoding;
+  const prevRT = renderer.getRenderTarget(), ret = XR.reticle.visible, mk = XR.markA.visible;
+  XR.reticle.visible = false; XR.markA.visible = false;
+  renderer.xr.enabled = false; renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, cam);
+  const p3d = new Uint8Array(w*h*4); renderer.readRenderTargetPixels(rt, 0, 0, w, h, p3d);
+  renderer.setRenderTarget(prevRT); renderer.xr.enabled = true; rt.dispose();
+  XR.reticle.visible = ret; XR.markA.visible = mk;
+  // 3) junta as duas (as imagens do WebGL vêm de baixo para cima)
+  const flip = px=>{ const id = new ImageData(w, h); for (let y=0;y<h;y++) id.data.set(px.subarray((h-1-y)*w*4, (h-y)*w*4), y*w*4); return id; };
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  g.putImageData(flip(camPx), 0, 0);
+  const c2 = document.createElement('canvas'); c2.width = w; c2.height = h; c2.getContext('2d').putImageData(flip(p3d), 0, 0);
+  g.drawImage(c2, 0, 0);
+  g.font = 'bold '+Math.round(h*0.025)+'px Arial'; g.fillStyle = 'rgba(255,255,255,.85)'; g.textAlign = 'right'; g.fillText('Visualizador 3D', w - h*0.02, h - h*0.02);
+  c.toBlob(b=>{ shotBlob = b; $('xrShotImg').src = URL.createObjectURL(b); $('xrShotBox').hidden = false; }, 'image/jpeg', 0.92);
+}
+function manualShot(){
+  xrMsg('Este celular não libera a câmera para a foto automática. Os botões vão sumir por 6 segundos: tire o print (ligar + volume para baixo).');
+  setTimeout(()=>{ $('xrUI').classList.add('clean'); }, 1800);
+  setTimeout(()=>{ $('xrUI').classList.remove('clean'); xrMsg(''); }, 7800);
+}
+const shots = [];
+const shotName = ()=>'realidade_aumentada_'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.jpg';
+function xrFrame(frame){
+  if (XR.wantShot) xrCapture(frame);
+  xrAnchor(frame);
+  if (XR.anchor && XR.step === 2 && XR.anchor.anchorSpace){
+    const p = frame.getPose(XR.anchor.anchorSpace, renderer.xr.getReferenceSpace());
+    if (p){
+      const q = p.transform.position, d = new THREE.Vector3(q.x - XR.anchorBase.x, q.y - XR.anchorBase.y, q.z - XR.anchorBase.z);
+      if (d.lengthSq() > 1e-6){ XR.A = XR.anchorBase.clone().add(d); if (XR.Bbase) XR.B = XR.Bbase.clone().add(d); xrPlace(); }
+    }
+  }
+  if (!XR.hts) return;
+  const res = frame.getHitTestResults(XR.hts);
+  if (res.length){ const pose = res[0].getPose(renderer.xr.getReferenceSpace()); if (pose){ XR.reticle.visible = XR.step < 2; XR.reticle.matrix.fromArray(pose.transform.matrix); } }
+  else XR.reticle.visible = false;
+}
+function xrPlaceMaquete(){
+  model.updateMatrixWorld(true);
+  XR.group.scale.setScalar(1); XR.group.rotation.set(0,0,0); XR.group.position.set(0,0,0); XR.group.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(model), C = new THREE.Vector3((b.min.x+b.max.x)/2, b.min.y, (b.min.z+b.max.z)/2);
+  const yaw = XR.rot*Math.PI/180;
+  XR.group.scale.setScalar(XR.scale); XR.group.rotation.set(0, yaw, 0);
+  const Cr = C.clone().multiplyScalar(XR.scale).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+  XR.group.position.copy(XR.A).sub(Cr); XR.group.position.y += XR.dy;
+  XR.group.visible = true;
+}
+function xrPlace(){
+  if (XR.kind === 'maquete'){ xrPlaceMaquete(); return; }
+  XR.group.scale.setScalar(1);
+  const F = new THREE.Vector3().fromArray(SITE.foot), xh = new THREE.Vector3().fromArray(SITE.xAxis);
+  const u = XR.B.clone().sub(XR.A); u.y = 0; u.normalize();
+  const yaw = Math.atan2(u.x, u.z) - Math.atan2(xh.x, xh.z) + XR.rot*Math.PI/180;
+  XR.group.rotation.set(0, yaw, 0); XR.group.position.set(0,0,0); XR.group.updateMatrixWorld(true);
+  const Fr = F.clone().applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+  XR.group.position.copy(XR.A).sub(Fr); XR.group.position.y += XR.dy;
+  XR.group.visible = true;
+}
+function xrSelect(){
+  if (!XR.reticle || !XR.reticle.visible) return;
+  const p = new THREE.Vector3().setFromMatrixPosition(XR.reticle.matrix);
+  if (XR.kind === 'maquete'){
+    XR.A = p; XR.step = 2; XR.dy = 0; if (XR.last){ XR.rot = XR.last.rot; XR.dy = XR.last.dy; XR.scale = XR.last.scale || XR.scale; } XR.wantAnchor = true; xrPlace(); xrHeightLabel();
+    xrMsg('Maquete colocada. Ela fica fixa: ande em volta. Use − / + tamanho, girar, "Tamanho real" ou Recomeçar.');
+    setTimeout(()=>{ if (XR.step === 2) xrMsg(''); }, 6000);
+    return;
+  }
+  if (XR.step === 0){
+    XR.A = p; XR.step = 1; XR.markA.position.copy(p).add(new THREE.Vector3(0, 0.15, 0)); XR.markA.visible = true;
+    xrMsg(SITE.mode === 'pe' ? 'Agora toque num ponto do chão à DIREITA da folha (olhando de frente para ela), junto da mesma parede ou pilar, a 1 ou 2 metros.' : 'Agora toque num ponto do chão à DIREITA da folha, olhando na direção da seta, a 1 ou 2 metros.');
+  } else if (XR.step === 1){
+    if (p.distanceTo(XR.A) < 0.3){ xrMsg('Toque num ponto um pouco mais longe (pelo menos 30 cm).'); return; }
+    XR.B = p; XR.step = 2; XR.dy = 0; if (XR.last){ XR.rot = XR.last.rot; XR.dy = XR.last.dy; } XR.markA.visible = false; XR.wantAnchor = true; xrPlace(); xrHeightLabel();
+    xrMsg('Projeto posicionado em tamanho real. Ande pela obra: ele fica fixo. Use ↺ ↻ para ajuste fino ou Recomeçar.');
+    setTimeout(()=>{ if (XR.step === 2) xrMsg(''); }, 6000);
+  }
+}
+function showBack(interrupted){
+  $('xrBackTitle').textContent = interrupted ? 'A realidade aumentada foi pausada' : 'Fotos da realidade aumentada';
+  $('xrThumbs').innerHTML = '';
+  shots.forEach(b=>{ const im = document.createElement('img'); im.src = URL.createObjectURL(b); im.alt = 'Foto'; $('xrThumbs').appendChild(im); });
+  $('xrSendAll').hidden = $('xrSaveAll').hidden = !shots.length;
+  $('xrBackInfo').textContent = (shots.length ? shots.length+' foto(s) guardada(s). ' : '')+(XR.last ? 'Ao voltar, marque de novo os dois pontos no chão: os ajustes de giro e altura são mantidos.' : '');
+  $('xrBack').hidden = !(interrupted || shots.length);
+}
+$('xrBackGo').onclick = ()=>{ $('xrBack').hidden = true; xrStart(XR.kind); };
+$('xrBackClose').onclick = ()=>{ $('xrBack').hidden = true; };
+$('xrSendAll').onclick = async ()=>{
+  const files = shots.map((b,i)=>new File([b], 'realidade_aumentada_'+(i+1)+'.jpg', {type:'image/jpeg'}));
+  if (navigator.canShare && navigator.canShare({files})){ try { await navigator.share({files, title:'Projeto em realidade aumentada'}); } catch(e){} }
+  else $('xrSaveAll').click();
+};
+$('xrSaveAll').onclick = ()=>{ shots.forEach((b,i)=>setTimeout(()=>{ const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'realidade_aumentada_'+(i+1)+'.jpg'; document.body.appendChild(a); a.click(); a.remove(); }, i*400)); };
+function xrEnded(){
+  const interrupted = !XR.userExit;
+  XR.userExit = false;
+  if (XR.step === 2) XR.last = {rot:XR.rot, dy:XR.dy, scale:XR.scale};
+  if (XR.anchor){ try { XR.anchor.delete(); } catch(e){} XR.anchor = null; }
+  $('xrH').textContent = '';
+  XR.active = false; XR.hts = null; renderer.xr.enabled = false;
+  if (XR.saved){ (XR.saved.parent || scene).add(model); scene.background = XR.saved.bg; catcher.visible = XR.saved.catcher; renderer.shadowMap.enabled = XR.saved.shadow; controls.autoRotate = XR.saved.rot; XR.saved = null; }
+  scene.remove(XR.group); scene.remove(XR.reticle); scene.remove(XR.markA);
+  document.body.classList.remove('inxr'); $('xrUI').hidden = true;
+  resize(); home(); fitSun();
+  showBack(interrupted);
+}
+$('xrShot').onclick = ()=>{ XR.wantShot = true; };
+function shotCount(){ $('xrShot').textContent = shots.length ? '📷 Foto ('+shots.length+')' : '📷 Foto'; }
+$('xrKeep').onclick = ()=>{ if (shotBlob){ shots.push(shotBlob); shotBlob = null; } $('xrShotBox').hidden = true; shotCount(); xrMsg('Foto guardada. Ao sair, envie todas de uma vez.'); setTimeout(()=>xrMsg(''), 2500); };
+$('xrShare').onclick = async ()=>{
+  if (shotBlob){ shots.push(shotBlob); shotCount(); }
+  XR.resume = true;
+  if (!shotBlob) return;
+  const f = new File([shotBlob], shotName(), {type:'image/jpeg'});
+  if (navigator.canShare && navigator.canShare({files:[f]})){ try { await navigator.share({files:[f], title:'Projeto em realidade aumentada'}); } catch(e){} }
+  else $('xrSave').click();
+};
+$('xrSave').onclick = ()=>{ if (!shotBlob) return; shots.push(shotBlob); shotCount(); const a = document.createElement('a'); a.href = URL.createObjectURL(shotBlob); a.download = shotName(); document.body.appendChild(a); a.click(); a.remove(); xrMsg('Foto salva em Downloads.'); setTimeout(()=>xrMsg(''), 3000); };
+
+$('xrX').onclick = ()=>{ XR.userExit = true; if (XR.session) XR.session.end(); };
+$('xrUp').onclick = ()=>{ if (XR.step === 2){ XR.dy += 0.05; xrPlace(); xrHeightLabel(); } };
+$('xrDown').onclick = ()=>{ if (XR.step === 2){ XR.dy -= 0.05; xrPlace(); xrHeightLabel(); } };
+$('xrRe').onclick = ()=>{ XR.last = null; if (XR.anchor){ try { XR.anchor.delete(); } catch(e){} XR.anchor = null; } XR.dy = 0; $('xrH').textContent = ''; XR.step = 0; XR.group.visible = false; XR.markA.visible = false; XR.rot = 0; xrMsg(XR.kind === 'maquete' ? 'Toque com o círculo azul onde quer colocar a maquete.' : 'Toque com o círculo azul no PÉ DA FOLHA.'); };
+$('xrL').onclick = ()=>{ if (XR.step === 2){ XR.rot -= XR.kind === 'maquete' ? 15 : 1; xrPlace(); } };
+$('xrR').onclick = ()=>{ if (XR.step === 2){ XR.rot += XR.kind === 'maquete' ? 15 : 1; xrPlace(); } };
+$('xrMinus').onclick = ()=>{ if (XR.step === 2){ XR.scale *= 0.8; xrPlace(); } };
+$('xrPlus').onclick = ()=>{ if (XR.step === 2){ XR.scale *= 1.25; xrPlace(); } };
+$('xrReal').onclick = ()=>{ if (XR.step === 2){ XR.scale = 1; xrPlace(); xrMsg('Tamanho real (1:1).'); setTimeout(()=>xrMsg(''), 2500); } };
+
+/* ---------- iPhone: AR Quick Look em tamanho real (escala travada) ---------- */
+const canQL = (()=>{ const a = document.createElement('a'); return !!(a.relList && a.relList.supports && a.relList.supports('ar')); })();
+async function quickLook(kind){
+  if (!model || !THREE.USDZExporter) return;
+  const btn = $('opQL'); const old = btn.textContent; btn.textContent = 'Preparando o modelo…';
+  try{
+    const data = await new THREE.USDZExporter().parse(model);
+    const url = URL.createObjectURL(new Blob([data], {type:'model/vnd.usdz+zip'}));
+    const a = document.createElement('a'); a.rel = 'ar'; a.href = kind === 'maquete' ? url : url+'#allowsContentScaling=0';
+    a.appendChild(document.createElement('img')); document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ alert('Não foi possível abrir no Quick Look: '+e.message); }
+  btn.textContent = old;
+}
+let pickKind = 'obra';
+async function showObraPick(kind){
+  pickKind = kind === 'maquete' ? 'maquete' : 'obra';
+  const mq = pickKind === 'maquete';
+  $('opTitle').textContent = mq ? 'Ver o projeto em realidade aumentada' : 'Ver a obra em escala real';
+  $('opXR').textContent = mq ? 'Modo estável (Android): maquete fixa na mesa ou no chão' : 'Modo estável (Android): o projeto fica fixo enquanto você anda';
+  $('opQL').textContent = mq ? 'Abrir no iPhone (Quick Look)' : 'Abrir no iPhone em tamanho real (Quick Look)';
+  $('obraPick').hidden = false;
+  const xr = await xrSupported();
+  $('opXR').hidden = !xr; $('opQL').hidden = !canQL;
+  $('opInfo').textContent = xr ? (mq ? 'Recomendado: modo estável. Não precisa da folha.' : 'Recomendado: modo estável. A folha impressa marca o ponto no chão.')
+    : canQL ? (mq ? 'No iPhone, o Quick Look mantém a maquete fixa; ajuste o tamanho com dois dedos.' : 'No iPhone, o Quick Look mantém o projeto fixo; posicione-o arrastando até a folha.')
+    : 'Este aparelho usa o modo com a folha impressa.';
+}
+$('opXR').onclick = ()=>{ $('obraPick').hidden = true; xrStart(pickKind); };
+$('opQL').onclick = ()=>{ quickLook(pickKind); };
+$('opSheet').onclick = ()=>{ $('obraPick').hidden = true; arOpen(pickKind === 'obra'); };
+$('obraPick').addEventListener('click', e=>{ if (e.target.id === 'obraPick') $('obraPick').hidden = true; });
+$('arExit').onclick = arClose;
+$('arPrint').onclick = arPrint;
+$('arSize').oninput = e=>{ AR.size = parseFloat(e.target.value)/100; if (AR.saved && !AR.obra) arFit(); };
+$('arL').onclick = ()=>{ if (AR.obra){ AR.rot -= 1; obraFit(); return; } AR.rot -= 15; AR.fit.rotation.y = AR.rot*Math.PI/180; };
+$('arR').onclick = ()=>{ if (AR.obra){ AR.rot += 1; obraFit(); return; } AR.rot += 15; AR.fit.rotation.y = AR.rot*Math.PI/180; };
+$('arPhoto').onclick = ()=>{ renderer.render(AR.scene, AR.cam); const a = document.createElement('a'); a.href = renderer.domElement.toDataURL('image/jpeg', 0.92); a.download = 'realidade_aumentada.jpg'; document.body.appendChild(a); a.click(); a.remove(); };
+window.addEventListener('resize', ()=>{ if (AR.active) arLayout(); });
+
+function setupMaterials(root){
+  root.traverse(o=>{
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    let opaque = true;
+    mats.forEach(m=>{
+      if ('envMapIntensity' in m) m.envMapIntensity = L.ambient*(m.userData.reflect ?? 1);
+      if (m.transparent){
+        m.depthWrite = m.opacity > 0.9;
+        m.side = THREE.FrontSide;
+        if (m.opacity < 0.6) opaque = false;
+      }
+    });
+    o.castShadow = useShadows && opaque;
+    o.receiveShadow = useShadows;
+  });
+}
+
+// O modelo vem embutido (arquivo baixado) ou em partes .bin ao lado do index.html (publicado no GitHub Pages).
+async function decode(){
+  let bytes;
+  if (CFG.parts && CFG.parts.length){
+    let done = 0; const n = CFG.parts.length;
+    $('ltext').textContent = 'Baixando o modelo 3D… 0%';
+    const bufs = await Promise.all(CFG.parts.map(async u=>{
+      let r = null;
+      for (let k=0; k<3 && !(r && r.ok); k++){ try { r = await fetch(u); } catch(e){ r = null; } if (!(r && r.ok)) await new Promise(z=>setTimeout(z, 1500)); }
+      if (!(r && r.ok)) throw new Error('parte '+u+' não encontrada');
+      const b = new Uint8Array(await r.arrayBuffer());
+      done++; $('ltext').textContent = 'Baixando o modelo 3D… '+Math.round(done/n*100)+'%';
+      return b;
+    }));
+    let tot = 0; bufs.forEach(b=>tot += b.length);
+    bytes = new Uint8Array(tot); let o = 0; bufs.forEach(b=>{ bytes.set(b, o); o += b.length; });
+    $('ltext').textContent = 'Abrindo o modelo 3D…';
+  } else {
+    const bin = atob($('glb').textContent.trim());
+    bytes = new Uint8Array(bin.length);
+    for (let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  }
+  return CFG.gzip ? fflate.gunzipSync(bytes) : bytes;
+}
+
+setTimeout(async ()=>{
+  let bytes;
+  try { bytes = await decode(); }
+  catch(e){ console.error(e); $('ltext').textContent = /parte/.test(e.message) ? 'Não foi possível baixar o modelo. Verifique a internet e recarregue a página.' : 'O arquivo do modelo está corrompido.'; return; }
+  new THREE.GLTFLoader().parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '', gltf=>{
+    model = gltf.scene;
+    setupMaterials(model);
+    scene.add(model);
+    if (gltf.animations && gltf.animations.length){ mixer = new THREE.AnimationMixer(model); gltf.animations.forEach(a=>mixer.clipAction(a).play()); }
+    if (CFG.camera){
+      homePos = new THREE.Vector3().fromArray(CFG.camera.pos);
+      homeTarget = new THREE.Vector3().fromArray(CFG.camera.target);
+      const s = bbox().getSize(new THREE.Vector3()).length() || 10;
+      camera.near = s/1000; camera.far = s*100; camera.updateProjectionMatrix();
+      home();
+    } else fit();
+    fitSun();
+    controls.autoRotate = !!CFG.autoRotate; $('bRot').setAttribute('aria-pressed', controls.autoRotate);
+    // modo papel de parede (#tela): sem botões nem textos, girando devagar sem parar
+    if (/^#tela\b/.test(location.hash)){
+      document.body.classList.add('wall');
+      controls.autoRotate = true; controls.autoRotateSpeed = 0.6; controls.enableDamping = true;
+    }
+    // disciplinas: filhos do nó principal
+    const root = model.children.length === 1 ? model.children[0] : model;
+    const groups = root.children.filter(c=>c.name);
+    if (groups.length > 1){
+      $('bDisc').hidden = false;
+      groups.forEach((g,i)=>{
+        const lab = document.createElement('label');
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+        const sw = document.createElement('i'); sw.style.background = (CFG.colors && CFG.colors[g.name]) || '#6E95FF';
+        const sp = document.createElement('span'); sp.textContent = g.name;
+        cb.onchange = ()=>{ g.visible = cb.checked; fitSun(); };
+        lab.append(cb, sw, sp); $('discPop').appendChild(lab);
+      });
+    }
+    $('loading').remove();
+    // link aberto pelo QR Code da folha impressa: oferece a realidade aumentada logo de início
+    if (/^#obra\b/.test(location.hash) && SITE){
+      startGeo();
+      showObraPick('obra');
+    } else if (/^#ra\b/.test(location.hash)){
+      showObraPick('maquete');
+    }
+  }, err=>{ console.error(err); $('ltext').textContent = 'Não foi possível abrir o modelo.'; });
+}, 30);
+})();
+</script>
+</body>
+</html>
